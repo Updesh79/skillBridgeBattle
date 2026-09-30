@@ -1,0 +1,6 @@
+{
+  "name": "SkillBridge – Micro-Skill Exchange & Peer Learning Platform",
+  "description": "Academic peer-to-peer skill exchange platform connecting university students to teach, learn, schedule sessions, and track progress together.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
