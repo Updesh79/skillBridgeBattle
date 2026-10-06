@@ -1,5 +1,5 @@
-import { Server as HttpServer } from 'http';
-import { Server as SocketIOServer, Socket } from 'socket.io';
+import type { Server as HttpServer } from 'http';
+import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { db } from '../db/index.ts';
 import {
   battles,
@@ -17,6 +17,7 @@ import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { verifySignedSessionToken } from '../middleware/auth.ts';
 import { adminAuth } from './firebase-admin.ts';
 import { generateValidatedBattleQuestions } from './battleQuestions.ts';
+import { attachTeachingRoomSocketHandlers } from './teachingRoomSocket.ts';
 
 export type BattleStatus =
   | 'WAITING'
@@ -1161,6 +1162,9 @@ export function attachBattleSocketServer(httpServer: HttpServer) {
   });
 
   ioInstance = io;
+
+  // Attach Teaching Room real-time WebRTC and room management handlers
+  attachTeachingRoomSocketHandlers(io);
 
   // Authenticate Socket.IO connections using the existing SkillBridge token system
   io.use(async (socket: Socket, next) => {

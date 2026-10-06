@@ -181,10 +181,11 @@ export const GlassStatCard: React.FC<{
   label: string;
   value: React.ReactNode;
   sub?: string;
+  subtext?: string;
   icon?: React.FC<{ className?: string }>;
-  accent?: 'blue' | 'purple' | 'cyan' | 'emerald' | 'amber' | 'rose';
+  accent?: 'blue' | 'purple' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'magenta';
   onClick?: () => void;
-}> = ({ label, value, sub, icon: Icon, accent = 'purple', onClick }) => {
+}> = ({ label, value, sub, subtext, icon: Icon, accent = 'purple', onClick }) => {
   const accentStyles = {
     blue: 'from-blue-500/20 to-indigo-500/5 text-blue-300 border-blue-400/25',
     purple: 'from-purple-500/20 to-indigo-500/5 text-purple-300 border-purple-400/25',
@@ -192,7 +193,10 @@ export const GlassStatCard: React.FC<{
     emerald: 'from-emerald-500/20 to-teal-500/5 text-emerald-300 border-emerald-400/25',
     amber: 'from-amber-500/20 to-orange-500/5 text-amber-300 border-amber-400/25',
     rose: 'from-rose-500/20 to-red-500/5 text-rose-300 border-rose-400/25',
+    magenta: 'from-fuchsia-500/20 to-purple-500/5 text-fuchsia-300 border-fuchsia-400/25',
   }[accent];
+
+  const displaySub = sub || subtext;
 
   return (
     <GlassCard
@@ -213,7 +217,7 @@ export const GlassStatCard: React.FC<{
       </div>
       <div>
         <p className="text-2xl font-bold text-white tracking-tight font-mono">{value}</p>
-        {sub && <p className="text-[11px] text-white/45 mt-1">{sub}</p>}
+        {displaySub && <p className="text-[11px] text-white/45 mt-1">{displaySub}</p>}
       </div>
     </GlassCard>
   );
@@ -523,34 +527,38 @@ export const LoadingSkeleton: React.FC<{ count?: number; height?: string }> = ({
 
 // 8. EmptyState
 export const EmptyState: React.FC<{
+  icon?: React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
-}> = ({ title, description, actionLabel, onAction }) => (
-  <div className="glass-level-2 relative overflow-hidden rounded-2xl p-10 text-center flex flex-col items-center justify-center">
-    <DeveloperCodeBackdrop />
-    <div className="relative z-10 flex flex-col items-center">
-      <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/15 text-indigo-300 flex items-center justify-center mb-3.5">
-        <Inbox className="w-5 h-5" />
+}> = ({ icon: CustomIcon, title, description, actionLabel, onAction }) => {
+  const IconComp = CustomIcon || Inbox;
+  return (
+    <div className="glass-level-2 relative overflow-hidden rounded-2xl p-10 text-center flex flex-col items-center justify-center">
+      <DeveloperCodeBackdrop />
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/15 text-indigo-300 flex items-center justify-center mb-3.5">
+          <IconComp className="w-5 h-5" />
+        </div>
+        <h4 className="text-base font-bold text-white tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-white/60 mt-1.5 max-w-md leading-relaxed">{description}</p>
+        )}
+        {actionLabel && onAction && (
+          <GlassButton
+            type="button"
+            variant="primary"
+            onClick={onAction}
+            className="mt-5"
+          >
+            {actionLabel}
+          </GlassButton>
+        )}
       </div>
-      <h4 className="text-base font-bold text-white tracking-tight">{title}</h4>
-      {description && (
-        <p className="text-xs text-white/60 mt-1.5 max-w-md leading-relaxed">{description}</p>
-      )}
-      {actionLabel && onAction && (
-        <GlassButton
-          type="button"
-          variant="primary"
-          onClick={onAction}
-          className="mt-5"
-        >
-          {actionLabel}
-        </GlassButton>
-      )}
     </div>
-  </div>
-);
+  );
+};
 
 // 9. ErrorState
 export const ErrorState: React.FC<{
@@ -651,15 +659,30 @@ export const PeerCard: React.FC<{
           <div className="flex items-center gap-3 min-w-0">
             <Avatar name={peer.fullName} src={peer.avatarUrl} size="lg" />
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-bold text-white tracking-tight truncate">
                   {peer.fullName}
                 </h3>
-                {peer.isDemo && (
+                {peer.isVerifiedMentor ? (
+                  <span
+                    title={
+                      peer.verifiedSkills
+                        ? `Verified Skills: ${peer.verifiedSkills}`
+                        : 'Admin-Verified SkillBridge Mentor'
+                    }
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35 shrink-0"
+                  >
+                    <CheckCircle2 className="w-3 h-3" /> Verified Mentor
+                  </span>
+                ) : peer.accountType === 'MENTOR' ? (
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-400/25 shrink-0">
+                    Mentor
+                  </span>
+                ) : peer.isDemo ? (
                   <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/[0.07] text-white/65 border border-white/10 shrink-0">
                     Peer
                   </span>
-                )}
+                ) : null}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-white/55 mt-0.5">
                 <GraduationCap className="w-3.5 h-3.5 text-indigo-400 shrink-0" />

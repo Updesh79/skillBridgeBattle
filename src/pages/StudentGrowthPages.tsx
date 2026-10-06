@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp,
   Target,
@@ -15,6 +16,7 @@ import {
   Shield,
   UserX,
   CheckCircle2,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import {
@@ -911,6 +913,7 @@ export const NotificationsPage: React.FC = () => {
 // ============================================================================
 export const ProfilePage: React.FC = () => {
   const { profile, apiFetch, refreshProfile, showToast } = useAuth();
+  const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
 
   const [fullName, setFullName] = useState('');
@@ -921,6 +924,15 @@ export const ProfilePage: React.FC = () => {
   const [location, setLocation] = useState('');
   const [availability, setAvailability] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [accountType, setAccountType] = useState('LEARNER');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [qualification, setQualification] = useState('');
+  const [careerGoal, setCareerGoal] = useState('');
+  const [experienceYears, setExperienceYears] = useState('');
+  const [experienceDescription, setExperienceDescription] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [projectsText, setProjectsText] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -933,6 +945,15 @@ export const ProfilePage: React.FC = () => {
       setLocation(profile.location || '');
       setAvailability(profile.availability || 'Weekdays & Weekends');
       setAvatarUrl(profile.avatarUrl || '');
+      setAccountType(profile.accountType || 'LEARNER');
+      setPhoneNumber(profile.phoneNumber || '');
+      setQualification(profile.qualification || '');
+      setCareerGoal(profile.careerGoal || '');
+      setExperienceYears(profile.experienceYears || '');
+      setExperienceDescription(profile.experienceDescription || '');
+      setGithubUrl(profile.githubUrl || '');
+      setLinkedinUrl(profile.linkedinUrl || '');
+      setProjectsText(profile.projectsText || '');
     }
   }, [profile]);
 
@@ -977,6 +998,15 @@ export const ProfilePage: React.FC = () => {
           location,
           availability,
           avatarUrl,
+          accountType,
+          phoneNumber,
+          qualification,
+          careerGoal,
+          experienceYears,
+          experienceDescription,
+          githubUrl,
+          linkedinUrl,
+          projectsText,
         }),
       });
       showToast('Profile updated successfully.', 'success');
@@ -999,21 +1029,40 @@ export const ProfilePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center gap-5">
             <Avatar name={profile.fullName} src={profile.avatarUrl} size="xl" />
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   {profile.fullName}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-lg bg-violet-500/20 text-violet-200 border border-violet-400/30 text-xs font-mono font-bold">
-                  {profile.role}
+                  {profile.accountType === 'MENTOR' ? 'MENTOR' : 'LEARNER'}
                 </span>
+                {profile.isVerifiedMentor && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified Mentor
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-white/50 font-mono mt-0.5">{profile.email}</p>
+              <p className="text-xs text-white/50 font-mono mt-0.5">
+                {profile.email} {profile.phoneNumber ? `• ${profile.phoneNumber}` : ''}
+              </p>
               <div className="flex flex-wrap items-center gap-4 mt-2.5 text-xs text-white/70">
                 <span className="flex items-center gap-1.5">
                   <GraduationCap className="w-4 h-4 text-indigo-400" />
-                  {profile.college || 'University Campus'} • {profile.course || 'BCA'}{' '}
+                  {profile.college || 'University Campus'} •{' '}
+                  {profile.qualification || profile.course || 'BCA'}{' '}
                   {profile.year ? `(${profile.year})` : ''}
                 </span>
+                {profile.careerGoal && (
+                  <span className="flex items-center gap-1.5 text-cyan-300 font-medium">
+                    <Target className="w-3.5 h-3.5" />
+                    Goal: {profile.careerGoal}
+                  </span>
+                )}
+                {profile.experienceYears && (
+                  <span className="flex items-center gap-1.5 text-emerald-300 font-mono">
+                    {profile.experienceYears} yrs experience
+                  </span>
+                )}
                 {profile.location && (
                   <span className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-cyan-400" />
@@ -1025,18 +1074,86 @@ export const ProfilePage: React.FC = () => {
                   {profile.availability || 'Weekdays & Weekends'}
                 </span>
               </div>
+              {profile.isVerifiedMentor && profile.verifiedSkills && (
+                <p className="text-xs font-mono text-emerald-300 mt-2">
+                  Verified Skills: {profile.verifiedSkills}
+                  {profile.verifiedAt
+                    ? ` • Verified on ${new Date(profile.verifiedAt).toLocaleDateString()}`
+                    : ''}
+                </p>
+              )}
             </div>
           </div>
 
-          <GlassButton
-            type="button"
-            variant="primary"
-            onClick={() => setEditOpen(true)}
-            className="self-start"
-          >
-            Edit Student Profile
-          </GlassButton>
+          <div className="flex flex-wrap items-center gap-2.5 self-start">
+            <GlassButton
+              type="button"
+              variant="secondary"
+              onClick={() => navigate('/mentor/verify-skills')}
+              className="flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Skill Verification</span>
+            </GlassButton>
+            <GlassButton
+              type="button"
+              variant="secondary"
+              onClick={() => navigate('/certificates')}
+              className="flex items-center gap-1.5"
+            >
+              <Award className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Certificates</span>
+            </GlassButton>
+            <GlassButton
+              type="button"
+              variant="primary"
+              onClick={() => setEditOpen(true)}
+            >
+              Edit Profile
+            </GlassButton>
+          </div>
         </div>
+
+        {/* Mentor Verification Status Banner if Mentor or has status */}
+        {(profile.accountType === 'MENTOR' ||
+          (profile.mentorVerificationStatus && profile.mentorVerificationStatus !== 'NONE')) && (
+          <div className="relative z-10 py-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">
+                  Mentor Verification Status:
+                </span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border ${
+                    profile.isVerifiedMentor || profile.mentorVerificationStatus === 'APPROVED'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/35'
+                      : profile.mentorVerificationStatus === 'REJECTED'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-400/35'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-400/35'
+                  }`}
+                >
+                  {profile.isVerifiedMentor
+                    ? 'APPROVED — VERIFIED MENTOR'
+                    : (profile.mentorVerificationStatus || 'PENDING_REVIEW').replace('_', ' ')}
+                </span>
+              </div>
+              {profile.mentorReviewNote && (
+                <p className="text-xs text-white/70">
+                  <span className="font-semibold text-white">Admin Review Note:</span>{' '}
+                  {profile.mentorReviewNote}
+                </p>
+              )}
+            </div>
+            <GlassButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/mentor/verify-skills')}
+            >
+              {profile.isVerifiedMentor ? 'Verify Another Skill' : 'Open Skill Verification Test'}
+            </GlassButton>
+          </div>
+        )}
 
         {/* Summary Metrics */}
         <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 py-5 border-b border-white/10">
@@ -1074,15 +1191,61 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bio */}
-        <div className="relative z-10 pt-5">
-          <h3 className="text-[11px] font-mono uppercase tracking-wider text-white/45 mb-1.5">
-            Student Bio
-          </h3>
-          <p className="text-sm text-white/80 leading-relaxed">
-            {profile.bio ||
-              'No bio added yet. Click "Edit Student Profile" to tell peers about your academic interests and skills!'}
-          </p>
+        {/* Bio & Professional Links */}
+        <div className="relative z-10 pt-5 space-y-4">
+          <div>
+            <h3 className="text-[11px] font-mono uppercase tracking-wider text-white/45 mb-1.5">
+              Bio &amp; Experience
+            </h3>
+            <p className="text-sm text-white/80 leading-relaxed">
+              {profile.bio ||
+                profile.experienceDescription ||
+                'No bio added yet. Click "Edit Profile" to tell peers about your academic interests and skills!'}
+            </p>
+          </div>
+
+          {(profile.githubUrl || profile.linkedinUrl || profile.projectsText) && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10 text-xs">
+              {profile.githubUrl && (
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <span className="text-[10px] font-mono uppercase text-white/45 block">
+                    GitHub Profile
+                  </span>
+                  <a
+                    href={profile.githubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-300 hover:underline font-mono break-all mt-1 inline-block"
+                  >
+                    {profile.githubUrl}
+                  </a>
+                </div>
+              )}
+              {profile.linkedinUrl && (
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <span className="text-[10px] font-mono uppercase text-white/45 block">
+                    LinkedIn Profile
+                  </span>
+                  <a
+                    href={profile.linkedinUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-cyan-300 hover:underline font-mono break-all mt-1 inline-block"
+                  >
+                    {profile.linkedinUrl}
+                  </a>
+                </div>
+              )}
+              {profile.projectsText && (
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <span className="text-[10px] font-mono uppercase text-white/45 block">
+                    Projects &amp; Portfolio
+                  </span>
+                  <p className="text-white/75 mt-1 leading-relaxed">{profile.projectsText}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </GlassCard>
 
@@ -1264,6 +1427,108 @@ export const ProfilePage: React.FC = () => {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Share your academic projects, teaching style, and learning goals..."
+              className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-white/10">
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">Account Role</label>
+              <select
+                value={accountType}
+                onChange={(e) => setAccountType(e.target.value)}
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              >
+                <option value="LEARNER">Learner</option>
+                <option value="MENTOR">Mentor</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">Qualification</label>
+              <select
+                value={qualification}
+                onChange={(e) => setQualification(e.target.value)}
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              >
+                <option value="">Select</option>
+                <option value="10th">10th</option>
+                <option value="12th">12th</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Graduation">Graduation</option>
+                <option value="Post Graduation">Post Graduation</option>
+                <option value="PhD">PhD</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">Phone Number</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">Career Goal</label>
+              <input
+                type="text"
+                value={careerGoal}
+                onChange={(e) => setCareerGoal(e.target.value)}
+                placeholder="e.g., Full Stack Developer"
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">
+                Years of Experience
+              </label>
+              <input
+                type="text"
+                value={experienceYears}
+                onChange={(e) => setExperienceYears(e.target.value)}
+                placeholder="e.g., 2+ years"
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">GitHub URL</label>
+              <input
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/username"
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1">LinkedIn URL</label>
+              <input
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="https://linkedin.com/in/username"
+                className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-white/75 mb-1">
+              Projects &amp; Portfolio
+            </label>
+            <textarea
+              rows={2}
+              value={projectsText}
+              onChange={(e) => setProjectsText(e.target.value)}
+              placeholder="Key projects or portfolio links..."
               className="glass-input w-full px-3 py-2 rounded-xl text-xs"
             />
           </div>

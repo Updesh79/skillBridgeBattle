@@ -18,7 +18,7 @@ import {
   blockedUsers,
 } from './schema.ts';
 import { eq, and, or, desc, asc, ne } from 'drizzle-orm';
-import { calculateRuleBasedMatch, SkillEntry } from './matching.ts';
+import { calculateRuleBasedMatch, type SkillEntry } from './matching.ts';
 
 export async function getAllCategoriesAndSkills() {
   try {

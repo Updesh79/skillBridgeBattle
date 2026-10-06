@@ -15,6 +15,12 @@ import {
   RefreshCw,
   ShieldAlert,
   Terminal,
+  GraduationCap,
+  Award,
+  Phone,
+  Search,
+  Briefcase,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import {
@@ -646,8 +652,58 @@ export const RegisterPage: React.FC = () => {
         </p>
       </div>
 
-      <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <GlassCard level={2} className="py-8 px-6 sm:px-8 space-y-5">
+      <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-xl">
+        <GlassCard level={2} className="py-8 px-6 sm:px-8 space-y-6">
+          {/* Role Selection Options: Sign Up as a Learner / Sign Up as a Mentor */}
+          <div className="space-y-3">
+            <p className="text-xs font-mono uppercase tracking-wider text-cyan-300 text-center">
+              Choose How You Want to Join SkillBridge
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <button
+                type="button"
+                onClick={() => navigate('/register/learner')}
+                className="group p-4 rounded-2xl glass-level-1 hover:border-cyan-400/50 border border-white/15 text-left transition-all flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/35 text-cyan-300 flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white/40 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-cyan-200">
+                    Sign Up as a Learner
+                  </h3>
+                  <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                    Select skills you want to learn, set your career goal, and connect with verified mentors.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/register/mentor')}
+                className="group p-4 rounded-2xl glass-level-1 hover:border-violet-400/50 border border-white/15 text-left transition-all flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-400/35 text-violet-300 flex items-center justify-center">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white/40 group-hover:text-violet-300 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-violet-200">
+                    Sign Up as a Mentor
+                  </h3>
+                  <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                    Choose skills you teach, pass the Skill Verification Test, and earn a Verified Mentor badge.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {error && (
             <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-400/30 text-xs text-rose-200 flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
@@ -915,6 +971,7 @@ export const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [resetData, setResetData] = useState<{ email: string; code: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -933,12 +990,11 @@ export const ForgotPasswordPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send reset email.');
-      showToast('Password reset code sent!', 'info');
-      navigate(
-        `/reset-password?email=${encodeURIComponent(data.email)}&code=${encodeURIComponent(
-          data.resetCodePreview || ''
-        )}`
-      );
+      showToast('Password reset email sent!', 'info');
+      setResetData({
+        email: data.email,
+        code: data.resetCodePreview || '',
+      });
     } catch (err: any) {
       setError(err.message || 'Could not send reset email.');
     } finally {
@@ -954,7 +1010,7 @@ export const ForgotPasswordPage: React.FC = () => {
           <div className="text-center">
             <h2 className="text-xl font-bold text-white tracking-tight">Forgot your password?</h2>
             <p className="text-xs text-white/55 mt-1">
-              Enter your student email address and we&apos;ll send you a password reset code.
+              Enter your registered email address and we&apos;ll send you a password reset link.
             </p>
           </div>
 
@@ -964,33 +1020,60 @@ export const ForgotPasswordPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-white/75 mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="student@university.edu"
-                className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
-              />
+          {resetData ? (
+            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 space-y-3 text-xs">
+              <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Password Reset Email Sent!</span>
+              </div>
+              <p className="text-white/75 leading-relaxed">
+                We sent a password reset link to <strong className="text-white">{resetData.email}</strong>.
+                Click the reset link below to create your new password:
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/reset-password?email=${encodeURIComponent(
+                      resetData.email
+                    )}&code=${encodeURIComponent(resetData.code)}`
+                  )
+                }
+                className="w-full py-2.5 px-4 rounded-xl btn-liquid-primary text-xs font-semibold flex items-center justify-center gap-2"
+              >
+                <span>Open Password Reset Link</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-white/75 mb-1.5">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="student@university.edu"
+                  className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2.5 px-4 rounded-xl btn-liquid-primary text-sm font-semibold"
-            >
-              {submitting ? 'Sending...' : 'Send Reset Instructions'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-2.5 px-4 rounded-xl btn-liquid-primary text-sm font-semibold"
+              >
+                {submitting ? 'Sending...' : 'Send Reset Instructions'}
+              </button>
+            </form>
+          )}
 
           <div className="text-center pt-2 border-t border-white/10">
             <Link to="/login" className="text-xs font-semibold text-cyan-300 hover:text-cyan-200">
-              Return to Login
+              Return to Sign In
             </Link>
           </div>
         </GlassCard>
@@ -1181,6 +1264,822 @@ export const ErrorPage: React.FC<{ code?: '404' | '403' | '500' }> = ({ code = '
           </GlassButton>
         </div>
       </GlassCard>
+    </div>
+  );
+};
+
+const QUALIFICATION_OPTIONS = [
+  '10th',
+  '12th',
+  'Diploma',
+  'Graduation',
+  'Post Graduation',
+  'PhD',
+  'Other',
+];
+
+const CAREER_GOAL_OPTIONS = [
+  'Web Developer',
+  'Full Stack Developer',
+  'Software Developer',
+  'App Developer',
+  'Data Analyst',
+  'Data Scientist',
+  'AI/ML Developer',
+  'UI/UX Designer',
+  'Cybersecurity',
+  'Other',
+];
+
+// 8. SIGN UP AS LEARNER PAGE (/register/learner)
+export const LearnerRegisterPage: React.FC = () => {
+  const { registerWithEmail, catalogSkills } = useAuth();
+  const navigate = useNavigate();
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [qualification, setQualification] = useState('Graduation');
+  const [careerGoal, setCareerGoal] = useState('Full Stack Developer');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [skillSearch, setSkillSearch] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [projectsUrl, setProjectsUrl] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const filteredSkills = catalogSkills.filter(
+    (s) =>
+      s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
+      s.categoryName.toLowerCase().includes(skillSearch.toLowerCase())
+  );
+
+  const toggleSkill = (id: number) => {
+    setSelectedSkillIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleRegister = async (skipOptional = false) => {
+    setError('');
+
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword || !phoneNumber.trim()) {
+      setError('Full Name, Email, Password, Confirm Password, and Phone Number are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (!qualification) {
+      setError('Please select your qualification.');
+      return;
+    }
+    if (selectedSkillIds.length === 0) {
+      setError('Please select at least one skill you want to learn.');
+      return;
+    }
+    if (!careerGoal) {
+      setError('Please select your career goal.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await registerWithEmail(fullName.trim(), email.trim(), password, {
+        accountType: 'LEARNER',
+        phoneNumber: phoneNumber.trim(),
+        qualification,
+        careerGoal,
+        learningSkillIds: selectedSkillIds,
+        githubUrl: skipOptional ? '' : githubUrl.trim(),
+        linkedinUrl: skipOptional ? '' : linkedinUrl.trim(),
+        projectsUrl: skipOptional ? '' : projectsUrl.trim(),
+        autoLogin: true,
+      });
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Learner registration failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#07070B] text-white flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <LiquidBackground />
+
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-2xl">
+        <Link to="/" className="flex items-center justify-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600/40 to-cyan-500/40 border border-white/20 flex items-center justify-center">
+            <SkillBridgeLogoIcon className="w-5 h-5" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight text-white">SkillBridge</span>
+        </Link>
+        <div className="mt-4 text-center">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-semibold">
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>Learner Registration</span>
+          </span>
+          <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Sign Up as a Learner
+          </h2>
+          <p className="mt-1 text-xs text-white/55">
+            Configure your learning profile, select target skills, and define your career goal
+          </p>
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-2xl">
+        <GlassCard level={2} className="py-8 px-6 sm:px-8 space-y-6">
+          {error && (
+            <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-400/30 text-xs text-rose-200 flex items-center gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRegister(false);
+            }}
+            className="space-y-6"
+          >
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300 border-b border-white/10 pb-2">
+                1. Basic Information
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Full Name *
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Aarav Mehta"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Phone Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      required
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-white/75 mb-1.5">
+                  Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="learner@university.edu"
+                    className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Confirm Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Qualification & Career Goal */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300 border-b border-white/10 pb-2">
+                2. Qualification &amp; Career Goal
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Qualification *
+                  </label>
+                  <select
+                    value={qualification}
+                    onChange={(e) => setQualification(e.target.value)}
+                    className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
+                  >
+                    {QUALIFICATION_OPTIONS.map((q) => (
+                      <option key={q} value={q} className="bg-[#12121A] text-white">
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    What is your goal? *
+                  </label>
+                  <select
+                    value={careerGoal}
+                    onChange={(e) => setCareerGoal(e.target.value)}
+                    className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
+                  >
+                    {CAREER_GOAL_OPTIONS.map((goal) => (
+                      <option key={goal} value={goal} className="bg-[#12121A] text-white">
+                        {goal}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Choose Skills You Want to Learn */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300">
+                  3. Choose Skills You Want to Learn *
+                </h3>
+                <span className="text-xs text-white/55 font-mono">
+                  {selectedSkillIds.length} selected
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={skillSearch}
+                  onChange={(e) => setSkillSearch(e.target.value)}
+                  placeholder="Search skills (e.g. Python, React, SQL, UI/UX)..."
+                  className="glass-input w-full pl-10 pr-4 py-2 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="max-h-48 overflow-y-auto p-3 rounded-xl glass-level-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {filteredSkills.map((sk) => {
+                  const active = selectedSkillIds.includes(sk.id);
+                  return (
+                    <button
+                      key={sk.id}
+                      type="button"
+                      onClick={() => toggleSkill(sk.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between gap-1.5 border ${
+                        active
+                          ? 'bg-cyan-500/25 border-cyan-400/50 text-cyan-100'
+                          : 'bg-white/[0.03] border-white/10 text-white/70 hover:text-white hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <span className="truncate">{sk.name}</span>
+                      {active && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-300 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Optional Professional Information */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-white/60">
+                  4. Optional Professional Information (Can Skip)
+                </h3>
+                <span className="text-[11px] text-white/45">Optional</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">
+                    GitHub Profile
+                  </label>
+                  <input
+                    type="url"
+                    value={githubUrl}
+                    onChange={(e) => setGithubUrl(e.target.value)}
+                    placeholder="https://github.com/username"
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">
+                    LinkedIn Profile
+                  </label>
+                  <input
+                    type="url"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://linkedin.com/in/username"
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">
+                    Projects Link
+                  </label>
+                  <input
+                    type="url"
+                    value={projectsUrl}
+                    onChange={(e) => setProjectsUrl(e.target.value)}
+                    placeholder="https://portfolio.dev"
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full sm:flex-1 py-3 px-5 rounded-xl btn-liquid-primary text-sm font-semibold disabled:opacity-50"
+              >
+                {submitting ? 'Creating Learner Profile...' : 'Complete Learner Registration'}
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => handleRegister(true)}
+                className="w-full sm:w-auto py-3 px-4 rounded-xl btn-liquid-secondary text-xs font-semibold text-white/80 hover:text-white"
+              >
+                Skip Optional &amp; Register
+              </button>
+            </div>
+          </form>
+
+          <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs text-white/55">
+            <Link to="/register" className="text-cyan-300 hover:text-cyan-200 font-medium">
+              &larr; Back to Role Selection
+            </Link>
+            <Link to="/login" className="text-white/70 hover:text-white font-medium">
+              Already have an account? Sign In
+            </Link>
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  );
+};
+
+// 9. SIGN UP AS MENTOR PAGE (/register/mentor)
+export const MentorRegisterPage: React.FC = () => {
+  const { registerWithEmail, catalogSkills } = useAuth();
+  const navigate = useNavigate();
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [qualification, setQualification] = useState('Graduation');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [skillSearch, setSkillSearch] = useState('');
+  const [experienceYears, setExperienceYears] = useState('2 Years');
+  const [experienceDescription, setExperienceDescription] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [projectsUrl, setProjectsUrl] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const filteredSkills = catalogSkills.filter(
+    (s) =>
+      s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
+      s.categoryName.toLowerCase().includes(skillSearch.toLowerCase())
+  );
+
+  const toggleSkill = (id: number) => {
+    setSelectedSkillIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword || !phoneNumber.trim()) {
+      setError('Full Name, Email, Password, Confirm Password, and Phone Number are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (selectedSkillIds.length === 0) {
+      setError('Please choose at least one skill you want to teach.');
+      return;
+    }
+    if (!experienceYears.trim() || !experienceDescription.trim()) {
+      setError('Please provide your years of experience and a short description.');
+      return;
+    }
+    if (!githubUrl.trim() || !linkedinUrl.trim() || !projectsUrl.trim()) {
+      setError('GitHub Profile, LinkedIn Profile, and Projects/Portfolio links are required for Mentor verification.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await registerWithEmail(fullName.trim(), email.trim(), password, {
+        accountType: 'MENTOR',
+        phoneNumber: phoneNumber.trim(),
+        qualification,
+        teachingSkillIds: selectedSkillIds,
+        experienceYears: experienceYears.trim(),
+        experienceDescription: experienceDescription.trim(),
+        githubUrl: githubUrl.trim(),
+        linkedinUrl: linkedinUrl.trim(),
+        projectsUrl: projectsUrl.trim(),
+        autoLogin: true,
+      });
+      navigate('/mentor/verify-skills');
+    } catch (err: any) {
+      setError(err.message || 'Mentor registration failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#07070B] text-white flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <LiquidBackground />
+
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-2xl">
+        <Link to="/" className="flex items-center justify-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600/40 to-cyan-500/40 border border-white/20 flex items-center justify-center">
+            <SkillBridgeLogoIcon className="w-5 h-5" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight text-white">SkillBridge</span>
+        </Link>
+        <div className="mt-4 text-center">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/35 text-violet-200 text-xs font-semibold">
+            <Award className="w-3.5 h-3.5" />
+            <span>Mentor Registration</span>
+          </span>
+          <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Sign Up as a Mentor
+          </h2>
+          <p className="mt-1 text-xs text-white/55">
+            Register your teaching skills, experience, and portfolio to proceed to Skill Verification
+          </p>
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-2xl">
+        <GlassCard level={2} className="py-8 px-6 sm:px-8 space-y-6">
+          {error && (
+            <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-400/30 text-xs text-rose-200 flex items-center gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 1. Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-violet-300 border-b border-white/10 pb-2">
+                1. Basic Information &amp; Qualification
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Full Name *
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Dr.Vikram Rao / Riya Sen"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Phone Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      required
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Email Address *
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="mentor@university.edu"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Qualification *
+                  </label>
+                  <select
+                    value={qualification}
+                    onChange={(e) => setQualification(e.target.value)}
+                    className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
+                  >
+                    {QUALIFICATION_OPTIONS.map((q) => (
+                      <option key={q} value={q} className="bg-[#12121A] text-white">
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Confirm Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Choose Skills You Want to Teach */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-violet-300">
+                  2. Choose Skills You Want to Teach *
+                </h3>
+                <span className="text-xs text-white/55 font-mono">
+                  {selectedSkillIds.length} selected
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={skillSearch}
+                  onChange={(e) => setSkillSearch(e.target.value)}
+                  placeholder="Search teaching skills (e.g. JavaScript, Python, React, SQL)..."
+                  className="glass-input w-full pl-10 pr-4 py-2 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="max-h-48 overflow-y-auto p-3 rounded-xl glass-level-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {filteredSkills.map((sk) => {
+                  const active = selectedSkillIds.includes(sk.id);
+                  return (
+                    <button
+                      key={sk.id}
+                      type="button"
+                      onClick={() => toggleSkill(sk.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between gap-1.5 border ${
+                        active
+                          ? 'bg-violet-500/25 border-violet-400/50 text-violet-100'
+                          : 'bg-white/[0.03] border-white/10 text-white/70 hover:text-white hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <span className="truncate">{sk.name}</span>
+                      {active && <CheckCircle2 className="w-3.5 h-3.5 text-violet-300 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Experience */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-violet-300 border-b border-white/10 pb-2">
+                3. Teaching &amp; Technical Experience *
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Years of Experience *
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={experienceYears}
+                      onChange={(e) => setExperienceYears(e.target.value)}
+                      placeholder="e.g. 2 Years"
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-white/75 mb-1.5">
+                    Short Description of Experience *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={experienceDescription}
+                    onChange={(e) => setExperienceDescription(e.target.value)}
+                    placeholder="e.g. Built full-stack web apps & mentored 30+ juniors in React and Python"
+                    className="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Professional Information */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-violet-300 border-b border-white/10 pb-2">
+                4. Professional &amp; Portfolio Links *
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1">
+                    GitHub Profile *
+                  </label>
+                  <div className="relative">
+                    <Globe className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="url"
+                      required
+                      value={githubUrl}
+                      onChange={(e) => setGithubUrl(e.target.value)}
+                      placeholder="https://github.com/username"
+                      className="glass-input w-full pl-8 pr-3 py-2 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1">
+                    LinkedIn Profile *
+                  </label>
+                  <div className="relative">
+                    <Globe className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="url"
+                      required
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      className="glass-input w-full pl-8 pr-3 py-2 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/75 mb-1">
+                    Projects / Portfolio Link *
+                  </label>
+                  <div className="relative">
+                    <Globe className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="url"
+                      required
+                      value={projectsUrl}
+                      onChange={(e) => setProjectsUrl(e.target.value)}
+                      placeholder="https://portfolio.dev"
+                      className="glass-input w-full pl-8 pr-3 py-2 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-3 px-5 rounded-xl btn-liquid-primary text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <span>
+                {submitting
+                  ? 'Creating Mentor Profile...'
+                  : 'Complete Mentor Registration & Proceed to Skill Test'}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs text-white/55">
+            <Link to="/register" className="text-cyan-300 hover:text-cyan-200 font-medium">
+              &larr; Back to Role Selection
+            </Link>
+            <Link to="/login" className="text-white/70 hover:text-white font-medium">
+              Already have an account? Sign In
+            </Link>
+          </div>
+        </GlassCard>
+      </div>
     </div>
   );
 };

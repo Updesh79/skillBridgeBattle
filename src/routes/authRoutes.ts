@@ -1,11 +1,17 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import crypto from 'crypto';
 import { db } from '../db/index.ts';
-import { profiles } from '../db/schema.ts';
+import {
+  profiles,
+  userLearningSkills,
+  userTeachingSkills,
+  progress,
+  learningGoals,
+} from '../db/schema.ts';
 import { eq } from 'drizzle-orm';
 import {
   requireAuth,
-  AuthRequest,
+  type AuthRequest,
   createSignedSessionToken,
 } from '../middleware/auth.ts';
 import { getOrCreateUser } from '../db/users.ts';
@@ -22,16 +28,32 @@ function generateSixDigitCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Register with Email & Password
+// Register with Email & Password (supports Learner & Mentor registration)
 authRouter.post('/register', async (req: Request, res: Response) => {
   try {
     await ensureDefaultCatalogAndDemoPeers();
-    const { fullName, email, password } = req.body;
+    const {
+      fullName,
+      email,
+      password,
+      accountType,
+      phoneNumber,
+      qualification,
+      careerGoal,
+      experienceYears,
+      experienceDescription,
+      githubUrl,
+      linkedinUrl,
+      projectsUrl,
+      learningSkillIds,
+      teachingSkillIds,
+      autoLogin,
+    } = req.body;
 
     if (!fullName || !email || !password) {
       return res.status(400).json({ error: 'Full name, email, and password are required.' });
     }
-    if (password.length < 6) {
+    if (String(password).length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
     }
 
@@ -47,6 +69,17 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
     const uid = `usr_${crypto.randomUUID()}`;
     const verificationCode = generateSixDigitCode();
+    const normalizedAccountType = accountType === 'MENTOR' ? 'MENTOR' : 'LEARNER';
+    const shouldAutoVerify = Boolean(autoLogin || accountType);
+
+    const bioText =
+      normalizedAccountType === 'MENTOR'
+        ? experienceDescription
+          ? String(experienceDescription).trim()
+          : `Peer Mentor (${experienceYears || '1+'} yrs experience)`
+        : careerGoal
+        ? `Aspiring ${String(careerGoal).trim()} • ${qualification || 'University Student'}`
+        : '';
 
     await db.insert(profiles).values({
       id: uid,
@@ -54,23 +87,110 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       fullName: String(fullName).trim(),
       email: normalizedEmail,
       passwordHash: hashPassword(password),
-      emailVerified: false,
-      verificationCode,
-      role: 'STUDENT', // Enforced STUDENT default role
+      emailVerified: shouldAutoVerify,
+      verificationCode: shouldAutoVerify ? null : verificationCode,
+      role: 'STUDENT',
+      accountType: normalizedAccountType,
+      phoneNumber: phoneNumber ? String(phoneNumber).trim() : '',
+      qualification: qualification ? String(qualification).trim() : '',
+      careerGoal: careerGoal ? String(careerGoal).trim() : '',
+      experienceYears: experienceYears ? String(experienceYears).trim() : '',
+      experienceDescription: experienceDescription ? String(experienceDescription).trim() : '',
+      githubUrl: githubUrl ? String(githubUrl).trim() : '',
+      linkedinUrl: linkedinUrl ? String(linkedinUrl).trim() : '',
+      projectsUrl: projectsUrl ? String(projectsUrl).trim() : '',
+      isVerifiedMentor: false,
+      mentorVerificationStatus: normalizedAccountType === 'MENTOR' ? 'Not Submitted' : 'Not Submitted',
+      bio: bioText,
       isActive: true,
       isDemo: false,
       college: 'University Campus',
-      course: 'BCA',
-      year: '3rd Year (Final)',
+      course: qualification ? String(qualification).trim() : 'BCA',
+      year: normalizedAccountType === 'MENTOR' ? `${experienceYears || '1+'} Yrs Exp` : 'Student',
       availability: 'Weekdays & Weekends',
     });
+
+    // Save selected learning skills for Learner
+    if (Array.isArray(learningSkillIds) && learningSkillIds.length > 0) {
+      for (const rawId of learningSkillIds) {
+        const sId = Number(rawId);
+        if (!Number.isNaN(sId) && sId > 0) {
+          await db.insert(userLearningSkills).values({
+            userId: uid,
+            skillId: sId,
+            level: 'Beginner',
+          });
+          await db.insert(progress).values({
+            userId: uid,
+            skillId: sId,
+            startingLevel: 'Beginner',
+            currentLevel: 'Beginner',
+            progressPercentage: 10,
+            sessionsCompleted: 0,
+            topicsCompleted: 'Onboarding completed',
+            notes: careerGoal ? `Career Goal: ${careerGoal}` : '',
+          });
+        }
+      }
+    }
+
+    // Save career goal as an active Learning Goal if provided
+    if (careerGoal && String(careerGoal).trim()) {
+      const target = new Date();
+      target.setMonth(target.getMonth() + 3);
+      await db.insert(learningGoals).values({
+        userId: uid,
+        skillId:
+          Array.isArray(learningSkillIds) && learningSkillIds.length > 0
+            ? Number(learningSkillIds[0]) || null
+            : null,
+        title: `Become a ${String(careerGoal).trim()}`,
+        description: `Master selected skills to achieve my career goal as a ${String(careerGoal).trim()}.`,
+        targetDate: target.toISOString().split('T')[0],
+        progressPercentage: 10,
+        status: 'In Progress',
+      });
+    }
+
+    // Save selected teaching skills for Mentor
+    if (Array.isArray(teachingSkillIds) && teachingSkillIds.length > 0) {
+      for (const rawId of teachingSkillIds) {
+        const sId = Number(rawId);
+        if (!Number.isNaN(sId) && sId > 0) {
+          await db.insert(userTeachingSkills).values({
+            userId: uid,
+            skillId: sId,
+            level: 'Advanced',
+          });
+        }
+      }
+    }
 
     await createNotification(
       uid,
       'WELCOME',
-      'Welcome to SkillBridge!',
-      'Add the skills you can teach and the skills you want to learn to get instant peer matches.'
+      `Welcome to SkillBridge as a ${normalizedAccountType === 'MENTOR' ? 'Mentor' : 'Learner'}!`,
+      normalizedAccountType === 'MENTOR'
+        ? 'Complete your Mentor Skill Verification Test so an administrator can review and award your Verified Mentor badge.'
+        : 'Explore compatible peers, schedule learning sessions, and track your career goal progress.'
     );
+
+    if (shouldAutoVerify) {
+      const token = createSignedSessionToken({
+        uid,
+        email: normalizedEmail,
+        email_verified: true,
+        name: String(fullName).trim(),
+      });
+      const fullProfile = await getFullUserProfile(uid);
+      return res.status(201).json({
+        message: 'Registration completed successfully!',
+        requiresVerification: false,
+        token,
+        profile: fullProfile,
+        accountType: normalizedAccountType,
+      });
+    }
 
     res.status(201).json({
       message: 'Account created. Please verify your email address.',

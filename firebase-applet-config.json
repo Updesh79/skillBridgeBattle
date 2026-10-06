@@ -3,6 +3,7 @@
   "appId": "1:564400557360:web:b032cdc82c71ca9e260cf5",
   "apiKey": "AIzaSyCo6xhebWpK5EZLFZeQXm-mXX2WOgMTP9E",
   "authDomain": "thematic-composite-pwrl4.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-skillbridgemicro-d7603a72-3565-4c92-a778-b5f77370f717",
   "storageBucket": "thematic-composite-pwrl4.firebasestorage.app",
   "messagingSenderId": "564400557360",
   "measurementId": "",

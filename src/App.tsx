@@ -10,11 +10,20 @@ import {
   LandingPage,
   LoginPage,
   RegisterPage,
+  LearnerRegisterPage,
+  MentorRegisterPage,
   VerifyEmailPage,
   ForgotPasswordPage,
   ResetPasswordPage,
   ErrorPage,
 } from './pages/PublicPages.tsx';
+import {
+  MentorVerifySkillsPage,
+  SkillVerificationTestScreen,
+  SkillTestResultPage,
+  CertificatesPage,
+  VerifyCertificatePage,
+} from './pages/MentorVerificationAndCertificatesPages.tsx';
 import {
   DashboardPage,
   DiscoverPeersPage,
@@ -26,6 +35,7 @@ import {
   SessionsPage,
   MessagesPage,
 } from './pages/StudentExchangePages.tsx';
+import { TeachingRoomPage } from './pages/TeachingRoomPage.tsx';
 import {
   ProgressPage,
   GoalsPage,
@@ -35,6 +45,7 @@ import {
 } from './pages/StudentGrowthPages.tsx';
 import {
   AdminDashboardPage,
+  AdminMentorVerificationsPage,
   AdminUsersPage,
   AdminSkillsPage,
   AdminCategoriesPage,
@@ -63,9 +74,12 @@ export default function App() {
           <Route path="/prd" element={<PrdPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register/learner" element={<LearnerRegisterPage />} />
+          <Route path="/register/mentor" element={<MentorRegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
 
           {/* Protected Student Routes */}
           <Route
@@ -199,6 +213,14 @@ export default function App() {
             }
           />
           <Route
+            path="/teaching-room/:sessionId"
+            element={
+              <ProtectedRoute>
+                <TeachingRoomPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/messages"
             element={
               <ProtectedRoute>
@@ -258,6 +280,46 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/mentor/verify-skills"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <MentorVerifySkillsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mentor/test/:testId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SkillVerificationTestScreen />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mentor/test-result/:testId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SkillTestResultPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/certificates"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CertificatesPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Admin Routes */}
           <Route
@@ -267,6 +329,18 @@ export default function App() {
                 <AdminRoute>
                   <AppLayout>
                     <AdminDashboardPage />
+                  </AppLayout>
+                </AdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/mentor-verifications"
+            element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <AppLayout>
+                    <AdminMentorVerificationsPage />
                   </AppLayout>
                 </AdminRoute>
               </ProtectedRoute>

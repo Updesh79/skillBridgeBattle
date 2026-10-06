@@ -1129,3 +1129,400 @@ export const AdminSettingsPage: React.FC = () => {
     </div>
   );
 };
+
+// ============================================================================
+// 8. ADMIN MENTOR VERIFICATIONS & BADGE REVIEW PAGE (/admin/mentor-verifications)
+// ============================================================================
+export const AdminMentorVerificationsPage: React.FC = () => {
+  const { apiFetch, showToast } = useAuth();
+  const [mentors, setMentors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [selectedMentor, setSelectedMentor] = useState<any | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [verifiedSkills, setVerifiedSkills] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadMentors = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch<{ mentors: any[] }>('/api/admin/mentor-verifications');
+      setMentors(res.mentors || []);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load mentor verification requests.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch, showToast]);
+
+  useEffect(() => {
+    loadMentors();
+  }, [loadMentors]);
+
+  const openReviewModal = (mentor: any) => {
+    setSelectedMentor(mentor);
+    setReviewNote(mentor.mentorReviewNote || '');
+    const defaultSkills =
+      mentor.mentorVerifiedSkills ||
+      Array.from(
+        new Set([
+          ...(mentor.testAttempts || []).map((t: any) => t.skill),
+          ...(mentor.teachingSkills || []).map((s: any) => s.name),
+        ])
+      ).join(', ');
+    setVerifiedSkills(defaultSkills);
+  };
+
+  const handleUpdateVerification = async (
+    mentorId: string,
+    nextStatus: 'Pending Review' | 'Under Review' | 'Approved' | 'Rejected'
+  ) => {
+    setSubmitting(true);
+    try {
+      const res = await apiFetch<{ message: string }>(`/api/admin/mentor-verifications/${mentorId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: nextStatus,
+          reviewNote,
+          verifiedSkills,
+        }),
+      });
+      showToast(res.message || `Status updated to ${nextStatus}`, 'success');
+      setSelectedMentor(null);
+      await loadMentors();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update mentor verification.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredMentors = mentors.filter((m) =>
+    statusFilter === 'ALL' ? true : m.mentorVerificationStatus === statusFilter
+  );
+
+  return (
+    <div className="space-y-8">
+      <GlassCard level={2} className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-[11px] font-mono uppercase tracking-widest text-cyan-300">
+            Mentor Qualification &amp; Badge Approval
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
+            Mentor Skill Verifications
+          </h1>
+          <p className="text-sm text-white/65 mt-1">
+            Review mentor profiles, teaching skills, qualifications, portfolios, and skill test
+            results before awarding the Verified Mentor badge.
+          </p>
+        </div>
+
+        <GlassButton variant="secondary" onClick={loadMentors}>
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh Queue</span>
+        </GlassButton>
+      </GlassCard>
+
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2">
+        {['ALL', 'Pending Review', 'Under Review', 'Approved', 'Rejected'].map((st) => (
+          <button
+            key={st}
+            type="button"
+            onClick={() => setStatusFilter(st)}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+              statusFilter === st
+                ? 'bg-gradient-to-r from-violet-600/35 to-cyan-500/25 border-cyan-400/50 text-white'
+                : 'glass-level-1 border-white/10 text-white/65 hover:text-white'
+            }`}
+          >
+            {st === 'ALL' ? 'All Mentors' : st}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <LoadingSkeleton count={3} height="h-44" />
+      ) : filteredMentors.length === 0 ? (
+        <EmptyState
+          icon={ShieldCheck}
+          title="No Mentor Submissions Match Filter"
+          description="When mentors complete registration and submit their Skill Verification Test, their profiles appear here for review."
+        />
+      ) : (
+        <div className="space-y-4">
+          {filteredMentors.map((mentor) => {
+            const latestTest = mentor.latestTest;
+            const status = mentor.mentorVerificationStatus || 'Pending Review';
+            return (
+              <GlassCard key={mentor.id} level={2} className="p-6 space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar name={mentor.fullName} src={mentor.avatarUrl} size="lg" />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-bold text-white">{mentor.fullName}</h3>
+                        {mentor.isVerifiedMentor && status === 'Approved' && (
+                          <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-[11px] font-bold inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                            <span>Verified Mentor</span>
+                          </span>
+                        )}
+                        <span
+                          className={`px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-bold border ${
+                            status === 'Approved'
+                              ? 'bg-emerald-500/20 border-emerald-400/35 text-emerald-200'
+                              : status === 'Rejected'
+                              ? 'bg-rose-500/20 border-rose-400/35 text-rose-200'
+                              : status === 'Under Review'
+                              ? 'bg-cyan-500/20 border-cyan-400/35 text-cyan-200'
+                              : 'bg-amber-500/20 border-amber-400/35 text-amber-200'
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/60 mt-0.5">
+                        {mentor.email} {mentor.phoneNumber ? `• ${mentor.phoneNumber}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <GlassButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => openReviewModal(mentor)}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Review Profile &amp; Test Result</span>
+                    </GlassButton>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <div className="p-3.5 rounded-xl glass-level-1 space-y-1.5">
+                    <span className="text-white/45 font-mono uppercase text-[10px] block">
+                      Qualification &amp; Experience
+                    </span>
+                    <p className="text-white font-semibold">
+                      {mentor.qualification || 'Graduation'} •{' '}
+                      {mentor.experienceYears || '1+ Years'}
+                    </p>
+                    <p className="text-white/65">
+                      {mentor.experienceDescription || mentor.bio || 'Peer mentor candidate'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl glass-level-1 space-y-1.5">
+                    <span className="text-white/45 font-mono uppercase text-[10px] block">
+                      Selected Teaching Skills &amp; Links
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(mentor.teachingSkills || []).map((sk: any) => (
+                        <span
+                          key={sk.id}
+                          className="px-2 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/30 text-violet-200 font-medium"
+                        >
+                          {sk.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-3 pt-1 text-cyan-300">
+                      {mentor.githubUrl && (
+                        <a
+                          href={mentor.githubUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-cyan-200"
+                        >
+                          GitHub
+                        </a>
+                      )}
+                      {mentor.linkedinUrl && (
+                        <a
+                          href={mentor.linkedinUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-cyan-200"
+                        >
+                          LinkedIn
+                        </a>
+                      )}
+                      {mentor.projectsUrl && (
+                        <a
+                          href={mentor.projectsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-cyan-200"
+                        >
+                          Projects
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl glass-level-1 space-y-1.5">
+                    <span className="text-white/45 font-mono uppercase text-[10px] block">
+                      Latest Skill Verification Test
+                    </span>
+                    {latestTest ? (
+                      <>
+                        <p className="text-white font-bold">
+                          {latestTest.skill}: {latestTest.score}/{latestTest.maxScore} (
+                          {latestTest.percentage}%)
+                        </p>
+                        <p className="text-white/65 font-mono text-[11px]">
+                          Correct: {latestTest.correctCount} • Incorrect: {latestTest.incorrectCount}{' '}
+                          • Unanswered: {latestTest.unansweredCount}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-white/50">No test submitted yet</p>
+                    )}
+                  </div>
+                </div>
+              </GlassCard>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Admin Mentor Review Modal */}
+      <Modal
+        open={Boolean(selectedMentor)}
+        onClose={() => setSelectedMentor(null)}
+        title="Admin Mentor Verification & Badge Decision"
+        maxWidth="max-w-2xl"
+      >
+        {selectedMentor && (
+          <div className="space-y-5 text-xs">
+            <div className="p-4 rounded-2xl glass-level-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white">{selectedMentor.fullName}</h3>
+                <span className="font-mono text-cyan-300">
+                  {selectedMentor.mentorVerificationStatus}
+                </span>
+              </div>
+              <p className="text-white/70">
+                Email: {selectedMentor.email} • Phone: {selectedMentor.phoneNumber || 'N/A'} •
+                Qualification: {selectedMentor.qualification || 'Graduation'}
+              </p>
+              <p className="text-white/70">
+                Experience ({selectedMentor.experienceYears || '1+ Yrs'}):{' '}
+                {selectedMentor.experienceDescription || selectedMentor.bio}
+              </p>
+              <div className="flex flex-wrap gap-4 pt-1 text-cyan-300 font-semibold">
+                {selectedMentor.githubUrl && (
+                  <a href={selectedMentor.githubUrl} target="_blank" rel="noreferrer">
+                    GitHub: {selectedMentor.githubUrl}
+                  </a>
+                )}
+                {selectedMentor.linkedinUrl && (
+                  <a href={selectedMentor.linkedinUrl} target="_blank" rel="noreferrer">
+                    LinkedIn: {selectedMentor.linkedinUrl}
+                  </a>
+                )}
+                {selectedMentor.projectsUrl && (
+                  <a href={selectedMentor.projectsUrl} target="_blank" rel="noreferrer">
+                    Projects: {selectedMentor.projectsUrl}
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Test Attempts */}
+            <div className="space-y-2">
+              <p className="font-mono uppercase text-[10px] text-white/50">
+                Skill Verification Test Performance
+              </p>
+              {(selectedMentor.testAttempts || []).length === 0 ? (
+                <p className="text-white/50">No test attempts recorded yet.</p>
+              ) : (
+                (selectedMentor.testAttempts || []).map((t: any) => (
+                  <div
+                    key={t.id}
+                    className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="font-bold text-white">
+                        {t.skill} ({t.difficulty}) — Attempt {t.id}
+                      </p>
+                      <p className="text-white/60 font-mono mt-0.5">
+                        Correct: {t.correctCount} | Incorrect: {t.incorrectCount} | Unanswered:{' '}
+                        {t.unansweredCount} | Time: {Math.floor(t.timeTakenSeconds / 60)}m{' '}
+                        {t.timeTakenSeconds % 60}s
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/35 text-emerald-200 font-mono font-bold">
+                      {t.score}/{t.maxScore} ({t.percentage}%)
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1.5">
+                Verified Skill(s) to Store on Mentor Badge
+              </label>
+              <input
+                type="text"
+                value={verifiedSkills}
+                onChange={(e) => setVerifiedSkills(e.target.value)}
+                placeholder="e.g. Python, JavaScript, React"
+                className="glass-input w-full px-3.5 py-2.5 rounded-xl text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-white/75 mb-1.5">
+                Admin Review Note (Visible to Mentor)
+              </label>
+              <textarea
+                rows={3}
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder="Add approval feedback or explain what needs improvement if rejected..."
+                className="glass-input w-full px-3.5 py-2.5 rounded-xl text-xs"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10">
+              <GlassButton
+                type="button"
+                variant="secondary"
+                disabled={submitting}
+                onClick={() => handleUpdateVerification(selectedMentor.id, 'Under Review')}
+              >
+                Mark Under Review
+              </GlassButton>
+
+              <div className="flex items-center gap-2.5">
+                <GlassButton
+                  type="button"
+                  variant="danger"
+                  disabled={submitting}
+                  onClick={() => handleUpdateVerification(selectedMentor.id, 'Rejected')}
+                >
+                  Reject
+                </GlassButton>
+                <GlassButton
+                  type="button"
+                  variant="primary"
+                  disabled={submitting}
+                  onClick={() => handleUpdateVerification(selectedMentor.id, 'Approved')}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Approve &amp; Award Verified Mentor Badge</span>
+                </GlassButton>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+};

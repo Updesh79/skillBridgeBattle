@@ -16,6 +16,7 @@ interface PendingVerificationState {
 
 interface AuthContextValue {
   profile: UserProfile | null;
+  token: string | null;
   loading: boolean;
   categories: CategoryItem[];
   catalogSkills: CatalogSkill[];
@@ -32,10 +33,14 @@ interface AuthContextValue {
   registerWithEmail: (
     fullName: string,
     email: string,
-    password: string
+    password: string,
+    extra?: Record<string, any>
   ) => Promise<{
     email: string;
     verificationCodePreview?: string;
+    profile?: UserProfile;
+    token?: string;
+    accountType?: string;
   }>;
   verifyEmailCode: (email: string, code: string) => Promise<UserProfile>;
   resendVerificationCode: (email: string) => Promise<string | undefined>;
@@ -180,15 +185,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data.profile;
   };
 
-  const registerWithEmail = async (fullName: string, email: string, password: string) => {
+  const registerWithEmail = async (
+    fullName: string,
+    email: string,
+    password: string,
+    extra?: Record<string, any>
+  ) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, password }),
+      body: JSON.stringify({ fullName, email, password, ...(extra || {}) }),
     });
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Registration failed.');
+    }
+    if (data.token && data.profile) {
+      tokenRef.current = data.token;
+      setProfile(data.profile);
+      setPendingVerification(null);
+      showToast(
+        data.accountType === 'MENTOR'
+          ? 'Mentor profile created! Proceed to Skill Verification.'
+          : 'Learner profile created! Welcome to SkillBridge.',
+        'success'
+      );
+      return {
+        email: data.profile.email,
+        profile: data.profile,
+        token: data.token,
+        accountType: data.accountType,
+      };
     }
     setPendingVerification({
       email: data.email,
@@ -284,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         profile,
+        token: tokenRef.current,
         loading,
         categories,
         catalogSkills,

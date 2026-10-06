@@ -1,5 +1,5 @@
-import { Router, Response } from 'express';
-import { AuthRequest, requireAuth } from '../middleware/auth.ts';
+import { Router, type Response } from 'express';
+import { type AuthRequest, requireAuth } from '../middleware/auth.ts';
 import { db } from '../db/index.ts';
 import {
   battles,

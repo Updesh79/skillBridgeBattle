@@ -111,31 +111,73 @@ export const PeerProfileModal: React.FC<{
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-white tracking-tight">{peer.fullName}</h2>
-                {peer.isDemo && (
+                {peer.isVerifiedMentor ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35">
+                    <CheckCircle2 className="w-3 h-3" /> Verified Mentor
+                  </span>
+                ) : peer.accountType === 'MENTOR' ? (
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-400/25">
+                    Mentor
+                  </span>
+                ) : peer.isDemo ? (
                   <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/[0.08] text-white/70 border border-white/15">
                     Campus Peer
                   </span>
-                )}
+                ) : null}
               </div>
               <p className="text-xs text-white/65 flex items-center gap-1.5 mt-1">
                 <GraduationCap className="w-4 h-4 text-indigo-400" />
                 <span>
-                  {peer.college || 'University Campus'} • {peer.course || 'BCA'}{' '}
+                  {peer.college || 'University Campus'} • {peer.course || peer.qualification || 'BCA'}{' '}
                   {peer.year ? `(${peer.year})` : ''}
                 </span>
               </p>
+              {peer.isVerifiedMentor && peer.verifiedSkills && (
+                <p className="text-[11px] font-mono text-emerald-300 mt-0.5">
+                  Verified Skills: {peer.verifiedSkills}
+                </p>
+              )}
               {peer.location && (
                 <p className="text-xs text-white/50 flex items-center gap-1.5 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-cyan-400" />
                   <span>{peer.location}</span>
                 </p>
               )}
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <RatingStars rating={peer.averageRating} count={peer.reviewCount} />
                 <span className="text-xs font-mono text-white/50">
                   • {peer.completedSessionsCount} completed sessions
                 </span>
+                {peer.experienceYears && (
+                  <span className="text-xs font-mono text-cyan-300">
+                    • {peer.experienceYears} yrs experience
+                  </span>
+                )}
               </div>
+              {(peer.githubUrl || peer.linkedinUrl) && (
+                <div className="flex items-center gap-3 mt-1.5 text-xs">
+                  {peer.githubUrl && (
+                    <a
+                      href={peer.githubUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-300 hover:underline font-mono"
+                    >
+                      GitHub ↗
+                    </a>
+                  )}
+                  {peer.linkedinUrl && (
+                    <a
+                      href={peer.linkedinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-cyan-300 hover:underline font-mono"
+                    >
+                      LinkedIn ↗
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

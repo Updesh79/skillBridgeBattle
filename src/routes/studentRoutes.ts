@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, type Response } from 'express';
 import { db } from '../db/index.ts';
 import {
   profiles,
@@ -17,9 +17,12 @@ import {
   notifications,
   reports,
   blockedUsers,
+  skillTests,
+  skillTestQuestions,
+  certificates,
 } from '../db/schema.ts';
 import { eq, and, or, desc, asc } from 'drizzle-orm';
-import { requireAuth, AuthRequest } from '../middleware/auth.ts';
+import { requireAuth, type AuthRequest } from '../middleware/auth.ts';
 import {
   getAllCategoriesAndSkills,
   getFullUserProfile,
@@ -30,6 +33,11 @@ import {
 } from '../db/queries.ts';
 import { ensureDefaultCatalogAndDemoPeers } from '../db/seed.ts';
 import { getOrCreateUser } from '../db/users.ts';
+import {
+  generateSkillTestQuestions,
+  finalizeSkillTestAttempt,
+  issueCertificateIfNotExists,
+} from '../lib/skillTestEngine.ts';
 
 export const studentRouter = Router();
 
@@ -73,6 +81,15 @@ studentRouter.put('/profile', requireAuth, async (req: AuthRequest, res: Respons
       notifySessions,
       notifyReviews,
       profileVisibility,
+      accountType,
+      phoneNumber,
+      qualification,
+      careerGoal,
+      experienceYears,
+      experienceDescription,
+      githubUrl,
+      linkedinUrl,
+      projectsUrl,
     } = req.body;
 
     if (fullName !== undefined && !String(fullName).trim()) {
@@ -99,6 +116,20 @@ studentRouter.put('/profile', requireAuth, async (req: AuthRequest, res: Respons
         notifyReviews: notifyReviews !== undefined ? Boolean(notifyReviews) : me.notifyReviews,
         profileVisibility:
           profileVisibility !== undefined ? String(profileVisibility) : me.profileVisibility,
+        accountType: accountType !== undefined ? String(accountType) : me.accountType,
+        phoneNumber: phoneNumber !== undefined ? String(phoneNumber).trim() : me.phoneNumber,
+        qualification:
+          qualification !== undefined ? String(qualification).trim() : me.qualification,
+        careerGoal: careerGoal !== undefined ? String(careerGoal).trim() : me.careerGoal,
+        experienceYears:
+          experienceYears !== undefined ? String(experienceYears).trim() : me.experienceYears,
+        experienceDescription:
+          experienceDescription !== undefined
+            ? String(experienceDescription).trim()
+            : me.experienceDescription,
+        githubUrl: githubUrl !== undefined ? String(githubUrl).trim() : me.githubUrl,
+        linkedinUrl: linkedinUrl !== undefined ? String(linkedinUrl).trim() : me.linkedinUrl,
+        projectsUrl: projectsUrl !== undefined ? String(projectsUrl).trim() : me.projectsUrl,
         updatedAt: new Date(),
       })
       .where(eq(profiles.id, me.id));
@@ -1209,6 +1240,108 @@ studentRouter.put('/sessions/:id', requireAuth, async (req: AuthRequest, res: Re
   }
 });
 
+// GET /api/sessions/:id/room-access - Security validation for Teaching Room entry
+studentRouter.get('/sessions/:id/room-access', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const me = await resolveCurrentProfile(req);
+    const sessionId = Number(req.params.id);
+
+    if (!sessionId || isNaN(sessionId)) {
+      return res.status(400).json({ error: 'Valid session ID is required.' });
+    }
+
+    const [sessionRow] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .limit(1);
+
+    if (!sessionRow) {
+      return res.status(404).json({ error: 'Teaching Room session was not found.' });
+    }
+
+    // SECTION 17: SECURITY CHECK
+    // Only the Mentor (Teacher) and Learner assigned to the scheduled session can join
+    const isTeacher = sessionRow.teacherId === me.id;
+    const isLearner = sessionRow.learnerId === me.id;
+
+    if (!isTeacher && !isLearner) {
+      return res.status(403).json({
+        error: 'Access Denied: You are not an authorized participant (Mentor or Learner) of this private Teaching Room.',
+      });
+    }
+
+    // Fetch Teacher Profile
+    const [teacherProfile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, sessionRow.teacherId))
+      .limit(1);
+
+    // Fetch Learner Profile
+    const [learnerProfile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, sessionRow.learnerId))
+      .limit(1);
+
+    // Fetch Skill
+    const [skillRow] = await db
+      .select()
+      .from(skills)
+      .where(eq(skills.id, sessionRow.skillId))
+      .limit(1);
+
+    const myRole: 'mentor' | 'learner' = isTeacher ? 'mentor' : 'learner';
+    const peerRole: 'mentor' | 'learner' = isTeacher ? 'learner' : 'mentor';
+    const peerProfile = isTeacher ? learnerProfile : teacherProfile;
+
+    res.json({
+      authorized: true,
+      myRole,
+      peerRole,
+      me: {
+        id: me.id,
+        fullName: me.fullName,
+        email: me.email,
+        avatarUrl: me.avatarUrl,
+        isVerifiedMentor: me.isVerifiedMentor,
+      },
+      peer: {
+        id: peerProfile?.id || '',
+        fullName: peerProfile?.fullName || (isTeacher ? 'Learner' : 'Mentor'),
+        email: peerProfile?.email || '',
+        avatarUrl: peerProfile?.avatarUrl || '',
+        isVerifiedMentor: peerProfile?.isVerifiedMentor,
+      },
+      session: {
+        id: sessionRow.id,
+        scheduledDate: sessionRow.scheduledDate,
+        startTime: sessionRow.startTime,
+        duration: sessionRow.duration,
+        notes: sessionRow.notes,
+        status: sessionRow.status,
+        skillName: skillRow?.name || 'Skill Exchange',
+        skillCategory: 'Technical',
+        teacher: {
+          id: teacherProfile?.id || '',
+          fullName: teacherProfile?.fullName || 'Mentor',
+          avatarUrl: teacherProfile?.avatarUrl || '',
+          isVerifiedMentor: teacherProfile?.isVerifiedMentor,
+        },
+        learner: {
+          id: learnerProfile?.id || '',
+          fullName: learnerProfile?.fullName || 'Learner',
+          avatarUrl: learnerProfile?.avatarUrl || '',
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('Error verifying teaching room access:', error);
+    res.status(500).json({ error: 'Failed to authorize teaching room access.' });
+  }
+});
+
 // Submit Rating & Review for a Completed Session
 studentRouter.post('/reviews', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
@@ -1688,3 +1821,509 @@ studentRouter.delete(
     }
   }
 );
+
+// ============================================================================
+// MENTOR SKILL VERIFICATION TESTS
+// ============================================================================
+
+// Get user's active test (if any) and past attempts
+studentRouter.get('/skill-tests/my', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const me = await resolveCurrentProfile(req);
+    const allAttempts = await db
+      .select()
+      .from(skillTests)
+      .where(eq(skillTests.userId, me.id))
+      .orderBy(desc(skillTests.createdAt));
+
+    // Check if any IN_PROGRESS test has expired on the server
+    const now = Date.now();
+    for (const att of allAttempts) {
+      if (att.status === 'IN_PROGRESS') {
+        const expMs = new Date(att.expiresAt).getTime();
+        if (now >= expMs) {
+          await finalizeSkillTestAttempt(att.id, true);
+        }
+      }
+    }
+
+    const refreshed = await db
+      .select()
+      .from(skillTests)
+      .where(eq(skillTests.userId, me.id))
+      .orderBy(desc(skillTests.createdAt));
+
+    const activeTest = refreshed.find((t) => t.status === 'IN_PROGRESS') || null;
+    res.json({
+      activeTest: activeTest
+        ? {
+            ...activeTest,
+            remainingSeconds: Math.max(
+              0,
+              Math.floor((new Date(activeTest.expiresAt).getTime() - Date.now()) / 1000)
+            ),
+          }
+        : null,
+      attempts: refreshed,
+    });
+  } catch (error: any) {
+    console.error('Error in GET /api/skill-tests/my:', error);
+    res.status(500).json({ error: 'Failed to load skill test attempts.' });
+  }
+});
+
+// Start (or resume active) Skill Verification Test
+studentRouter.post('/skill-tests/start', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const me = await resolveCurrentProfile(req);
+    const { skill, difficulty } = req.body;
+    const chosenSkill = String(skill || 'JavaScript').trim();
+    const chosenDiff = String(difficulty || 'Intermediate').trim();
+
+    // Check if user already has an active, non-expired test
+    const existingActive = await db
+      .select()
+      .from(skillTests)
+      .where(and(eq(skillTests.userId, me.id), eq(skillTests.status, 'IN_PROGRESS')));
+
+    for (const active of existingActive) {
+      const remaining = Math.floor((new Date(active.expiresAt).getTime() - Date.now()) / 1000);
+      if (remaining > 0 && active.skill.toLowerCase() === chosenSkill.toLowerCase()) {
+        return res.json({
+          message: 'Resuming active test attempt.',
+          testId: active.id,
+          resumed: true,
+        });
+      } else if (remaining <= 0) {
+        await finalizeSkillTestAttempt(active.id, true);
+      }
+    }
+
+    const generated = generateSkillTestQuestions(chosenSkill);
+    const testId = `TEST-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const durationSeconds = 20 * 60; // 20 minutes for 20 questions
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + durationSeconds * 1000);
+
+    await db.insert(skillTests).values({
+      id: testId,
+      userId: me.id,
+      skill: chosenSkill,
+      difficulty: chosenDiff,
+      status: 'IN_PROGRESS',
+      totalQuestions: generated.length,
+      durationSeconds,
+      startedAt,
+      expiresAt,
+      maxScore: generated.reduce((s, q) => s + q.points, 0),
+      currentQuestionIndex: 0,
+    });
+
+    for (const q of generated) {
+      await db.insert(skillTestQuestions).values({
+        testId,
+        questionNumber: q.questionNumber,
+        questionType: q.questionType,
+        questionText: q.questionText,
+        options: JSON.stringify(q.options),
+        starterCode: q.starterCode,
+        expectedKeywords: JSON.stringify(q.expectedKeywords),
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        points: q.points,
+        userAnswer: q.questionType === 'CODE' ? q.starterCode : '',
+        isAnswered: false,
+      });
+    }
+
+    res.status(201).json({
+      message: 'Skill verification test started.',
+      testId,
+      resumed: false,
+    });
+  } catch (error: any) {
+    console.error('Error in POST /api/skill-tests/start:', error);
+    res.status(500).json({ error: 'Failed to start skill test.' });
+  }
+});
+
+// Get Test Screen state or Final Result (with server-authoritative timer)
+studentRouter.get('/skill-tests/:testId', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const me = await resolveCurrentProfile(req);
+    const testId = String(req.params.testId);
+    const [test] = await db.select().from(skillTests).where(eq(skillTests.id, testId));
+
+    if (!test) {
+      return res.status(404).json({ error: 'Skill test attempt not found.' });
+    }
+    if (test.userId !== me.id && me.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to view this test.' });
+    }
+
+    // Check server timer expiration
+    const now = Date.now();
+    const expiresMs = new Date(test.expiresAt).getTime();
+    let currentTest = test;
+
+    if (test.status === 'IN_PROGRESS' && now >= expiresMs) {
+      const finalized = await finalizeSkillTestAttempt(testId, true);
+      if (finalized) currentTest = finalized.test;
+    }
+
+    const rawQuestions = await db
+      .select()
+      .from(skillTestQuestions)
+      .where(eq(skillTestQuestions.testId, testId))
+      .orderBy(asc(skillTestQuestions.questionNumber));
+
+    const remainingSeconds =
+      currentTest.status === 'IN_PROGRESS'
+        ? Math.max(0, Math.floor((new Date(currentTest.expiresAt).getTime() - Date.now()) / 1000))
+        : 0;
+
+    const formattedQuestions = rawQuestions.map((q) => {
+      let parsedOptions: string[] = [];
+      try {
+        parsedOptions = JSON.parse(q.options || '[]');
+      } catch {
+        parsedOptions = [];
+      }
+
+      // Check whether user actually answered
+      const hasAnswer =
+        q.questionType === 'MCQ'
+          ? Boolean(q.userAnswer && q.userAnswer.trim())
+          : Boolean(
+              q.userAnswer &&
+                q.userAnswer.replace(/\s+/g, '') !== (q.starterCode || '').replace(/\s+/g, '') &&
+                q.userAnswer.trim().length > 10
+            );
+
+      if (currentTest.status === 'IN_PROGRESS') {
+        return {
+          id: q.id,
+          testId: q.testId,
+          questionNumber: q.questionNumber,
+          questionType: q.questionType,
+          questionText: q.questionText,
+          options: parsedOptions,
+          starterCode: q.starterCode,
+          points: q.points,
+          userAnswer: q.userAnswer,
+          isAnswered: hasAnswer,
+        };
+      }
+
+      return {
+        id: q.id,
+        testId: q.testId,
+        questionNumber: q.questionNumber,
+        questionType: q.questionType,
+        questionText: q.questionText,
+        options: parsedOptions,
+        starterCode: q.starterCode,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        points: q.points,
+        userAnswer: q.userAnswer,
+        isAnswered: q.isAnswered,
+        isCorrect: q.isCorrect,
+        pointsEarned: q.pointsEarned,
+      };
+    });
+
+    res.json({
+      test: {
+        ...currentTest,
+        remainingSeconds,
+      },
+      questions: formattedQuestions,
+    });
+  } catch (error: any) {
+    console.error('Error in GET /api/skill-tests/:testId:', error);
+    res.status(500).json({ error: 'Failed to load skill test.' });
+  }
+});
+
+// Save Answer Temporarily During Active Test (preserves MCQ & Code answers across navigation/refresh)
+studentRouter.put(
+  '/skill-tests/:testId/answer',
+  requireAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const me = await resolveCurrentProfile(req);
+      const testId = String(req.params.testId);
+      const { questionNumber, userAnswer, currentQuestionIndex } = req.body;
+
+      const [test] = await db.select().from(skillTests).where(eq(skillTests.id, testId));
+      if (!test || test.userId !== me.id) {
+        return res.status(404).json({ error: 'Test attempt not found.' });
+      }
+
+      if (test.status !== 'IN_PROGRESS') {
+        return res.status(400).json({ error: 'This test is already locked and submitted.' });
+      }
+
+      const now = Date.now();
+      const expiresMs = new Date(test.expiresAt).getTime();
+      if (now >= expiresMs) {
+        const finalized = await finalizeSkillTestAttempt(testId, true);
+        return res.json({
+          expired: true,
+          message: 'Time is up! Your test has been automatically submitted.',
+          test: finalized?.test,
+        });
+      }
+
+      if (questionNumber !== undefined) {
+        const [qRow] = await db
+          .select()
+          .from(skillTestQuestions)
+          .where(
+            and(
+              eq(skillTestQuestions.testId, testId),
+              eq(skillTestQuestions.questionNumber, Number(questionNumber))
+            )
+          );
+
+        if (qRow) {
+          const ansStr = String(userAnswer ?? '');
+          const isAnswered =
+            qRow.questionType === 'MCQ'
+              ? Boolean(ansStr.trim())
+              : Boolean(
+                  ansStr.replace(/\s+/g, '') !== (qRow.starterCode || '').replace(/\s+/g, '') &&
+                    ansStr.trim().length > 10
+                );
+
+          await db
+            .update(skillTestQuestions)
+            .set({
+              userAnswer: ansStr,
+              isAnswered,
+            })
+            .where(eq(skillTestQuestions.id, qRow.id));
+        }
+      }
+
+      if (currentQuestionIndex !== undefined) {
+        await db
+          .update(skillTests)
+          .set({ currentQuestionIndex: Number(currentQuestionIndex) })
+          .where(eq(skillTests.id, testId));
+      }
+
+      const remainingSeconds = Math.max(
+        0,
+        Math.floor((new Date(test.expiresAt).getTime() - Date.now()) / 1000)
+      );
+
+      res.json({
+        saved: true,
+        remainingSeconds,
+      });
+    } catch (error: any) {
+      console.error('Error saving test answer:', error);
+      res.status(500).json({ error: 'Failed to save answer.' });
+    }
+  }
+);
+
+// Submit & Lock Skill Test
+studentRouter.post(
+  '/skill-tests/:testId/submit',
+  requireAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const me = await resolveCurrentProfile(req);
+      const testId = String(req.params.testId);
+      const { answers } = req.body;
+
+      const [test] = await db.select().from(skillTests).where(eq(skillTests.id, testId));
+      if (!test || test.userId !== me.id) {
+        return res.status(404).json({ error: 'Test attempt not found.' });
+      }
+
+      if (test.status === 'IN_PROGRESS' && answers && typeof answers === 'object') {
+        const questions = await db
+          .select()
+          .from(skillTestQuestions)
+          .where(eq(skillTestQuestions.testId, testId));
+
+        for (const q of questions) {
+          if (answers[q.questionNumber] !== undefined) {
+            await db
+              .update(skillTestQuestions)
+              .set({ userAnswer: String(answers[q.questionNumber]) })
+              .where(eq(skillTestQuestions.id, q.id));
+          }
+        }
+      }
+
+      const finalized = await finalizeSkillTestAttempt(testId, false);
+      if (!finalized) {
+        return res.status(404).json({ error: 'Could not finalize test.' });
+      }
+
+      await createNotification(
+        me.id,
+        'SKILL_TEST_SUBMITTED',
+        `Skill Test Completed: ${finalized.test.skill}`,
+        `You scored ${finalized.test.score}/${finalized.test.maxScore} (${finalized.test.percentage}%). Your profile is now Pending Admin Review for the Verified Mentor Badge.`,
+        finalized.test.id
+      );
+
+      res.json({
+        message: 'Skill test submitted and locked! Your result has been sent for Admin Review.',
+        test: finalized.test,
+      });
+    } catch (error: any) {
+      console.error('Error submitting skill test:', error);
+      res.status(500).json({ error: 'Failed to submit skill test.' });
+    }
+  }
+);
+
+// ============================================================================
+// CERTIFICATES & PUBLIC CERTIFICATE VERIFICATION
+// ============================================================================
+
+// Get all certificates earned by the current user (and auto-issue for 100% progress or verified mentor)
+studentRouter.get('/certificates', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    await ensureDefaultCatalogAndDemoPeers();
+    const me = await resolveCurrentProfile(req);
+
+    // 1. If user is an Approved Verified Mentor, ensure they have their Verified Mentor Certificate
+    if (me.isVerifiedMentor && me.mentorVerificationStatus === 'Approved') {
+      const primarySkill = (me.mentorVerifiedSkills || 'Peer Mentoring').split(',')[0].trim() || 'Peer Mentoring';
+      await issueCertificateIfNotExists({
+        userId: me.id,
+        recipientName: me.fullName,
+        title: `Verified Peer Mentor – ${primarySkill}`,
+        skillName: primarySkill,
+        certificateType: 'MENTOR_VERIFICATION',
+        issuedBy: 'SkillBridge Academic Verification Board',
+      });
+    }
+
+    // 2. If user has any progress items at 100%, ensure they have a Skill Completion Certificate
+    const userProg = await db
+      .select({
+        progressPercentage: progress.progressPercentage,
+        skillName: skills.name,
+      })
+      .from(progress)
+      .innerJoin(skills, eq(progress.skillId, skills.id))
+      .where(eq(progress.userId, me.id));
+
+    for (const p of userProg) {
+      if (p.progressPercentage >= 100) {
+        await issueCertificateIfNotExists({
+          userId: me.id,
+          recipientName: me.fullName,
+          title: `Certificate of Skill Mastery – ${p.skillName}`,
+          skillName: p.skillName,
+          certificateType: 'SKILL_COMPLETION',
+          score: 100,
+          issuedBy: 'SkillBridge Academic Board',
+        });
+      }
+    }
+
+    // 3. If user passed a skill test (>= 60%), ensure they have a Skill Assessment Certificate
+    const myTests = await db
+      .select()
+      .from(skillTests)
+      .where(and(eq(skillTests.userId, me.id), eq(skillTests.passed, true)));
+
+    for (const t of myTests) {
+      await issueCertificateIfNotExists({
+        userId: me.id,
+        recipientName: me.fullName,
+        title: `Skill Assessment Achievement – ${t.skill}`,
+        skillName: t.skill,
+        certificateType: 'SKILL_COMPLETION',
+        score: t.percentage,
+        issuedBy: 'SkillBridge Technical Assessment Board',
+      });
+    }
+
+    const userCerts = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.userId, me.id))
+      .orderBy(desc(certificates.createdAt));
+
+    res.json({ certificates: userCerts });
+  } catch (error: any) {
+    console.error('Error in GET /api/certificates:', error);
+    res.status(500).json({ error: 'Failed to load certificates.' });
+  }
+});
+
+// Claim / Generate a Certificate for a completed skill or peer exchange milestone
+studentRouter.post('/certificates/claim', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const me = await resolveCurrentProfile(req);
+    const { skillName, title, certificateType } = req.body;
+    const targetSkill = String(skillName || 'Full Stack Development').trim();
+    const targetType =
+      certificateType === 'MENTOR_VERIFICATION' || certificateType === 'PEER_EXCHANGE'
+        ? certificateType
+        : 'SKILL_COMPLETION';
+    const targetTitle = String(
+      title || `Certificate of Completion – ${targetSkill}`
+    ).trim();
+
+    const cert = await issueCertificateIfNotExists({
+      userId: me.id,
+      recipientName: me.fullName,
+      title: targetTitle,
+      skillName: targetSkill,
+      certificateType: targetType,
+      score: 92,
+      issuedBy: 'SkillBridge Academic Board',
+    });
+
+    res.status(201).json({
+      message: `Certificate ${cert.certificateId} ready!`,
+      certificate: cert,
+    });
+  } catch (error: any) {
+    console.error('Error claiming certificate:', error);
+    res.status(500).json({ error: 'Failed to issue certificate.' });
+  }
+});
+
+// Public / Authenticated Certificate Verification by unique Certificate ID (e.g. SB-CERT-2026-000101)
+studentRouter.get('/certificates/verify/:certificateId', async (req, res: Response) => {
+  try {
+    await ensureDefaultCatalogAndDemoPeers();
+    const rawId = String(req.params.certificateId || '').trim().toUpperCase();
+    if (!rawId) {
+      return res.status(400).json({ valid: false, error: 'Certificate ID is required.' });
+    }
+
+    const [cert] = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.certificateId, rawId));
+
+    if (!cert) {
+      return res.status(404).json({
+        valid: false,
+        message: `No certificate found matching ID "${rawId}". Please check the Certificate ID and try again.`,
+      });
+    }
+
+    res.json({
+      valid: cert.verificationStatus === 'Verified',
+      certificate: cert,
+    });
+  } catch (error: any) {
+    console.error('Error verifying certificate:', error);
+    res.status(500).json({ valid: false, error: 'Failed to verify certificate.' });
+  }
+});

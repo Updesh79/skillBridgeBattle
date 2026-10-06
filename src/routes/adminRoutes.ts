@@ -1,4 +1,4 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router, type Response, type NextFunction } from 'express';
 import { db } from '../db/index.ts';
 import {
   profiles,
@@ -11,12 +11,18 @@ import {
   sessions,
   reviews,
   reports,
+  skillTests,
 } from '../db/schema.ts';
 import { eq, desc, asc } from 'drizzle-orm';
-import { requireAuth, AuthRequest } from '../middleware/auth.ts';
+import { requireAuth, type AuthRequest } from '../middleware/auth.ts';
 import { getOrCreateUser } from '../db/users.ts';
-import { getUserRatingAndSessionStats } from '../db/queries.ts';
+import {
+  getUserRatingAndSessionStats,
+  getUserSkillEntries,
+  createNotification,
+} from '../db/queries.ts';
 import { ensureDefaultCatalogAndDemoPeers } from '../db/seed.ts';
+import { issueCertificateIfNotExists } from '../lib/skillTestEngine.ts';
 
 export const adminRouter = Router();
 
@@ -455,5 +461,148 @@ adminRouter.post('/seed', async (_req: AuthRequest, res: Response) => {
     res.json({ message: 'Demo catalog and sample student peers verified/seeded.' });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to seed demo data.' });
+  }
+});
+
+// 8. Admin Mentor Verification & Badge Review
+adminRouter.get('/mentor-verifications', async (_req: AuthRequest, res: Response) => {
+  try {
+    await ensureDefaultCatalogAndDemoPeers();
+    const allUsers = await db.select().from(profiles).orderBy(desc(profiles.updatedAt));
+    const allTests = await db.select().from(skillTests).orderBy(desc(skillTests.createdAt));
+
+    const testsByUser = new Map<string, typeof allTests>();
+    for (const t of allTests) {
+      const list = testsByUser.get(t.userId) || [];
+      list.push(t);
+      testsByUser.set(t.userId, list);
+    }
+
+    const mentors = [];
+    for (const u of allUsers) {
+      const userTests = testsByUser.get(u.id) || [];
+      const isMentorCandidate =
+        u.accountType === 'MENTOR' ||
+        userTests.length > 0 ||
+        (u.mentorVerificationStatus && u.mentorVerificationStatus !== 'Not Submitted');
+
+      if (!isMentorCandidate) continue;
+
+      const skillsData = await getUserSkillEntries(u.id);
+      const { passwordHash, verificationCode, resetCode, ...safeUser } = u;
+      mentors.push({
+        ...safeUser,
+        teachingSkills: skillsData.teaching,
+        learningSkills: skillsData.learning,
+        testAttempts: userTests,
+        latestTest: userTests[0] || null,
+      });
+    }
+
+    res.json({ mentors });
+  } catch (error: any) {
+    console.error('Error in GET /api/admin/mentor-verifications:', error);
+    res.status(500).json({ error: 'Failed to load mentor verification requests.' });
+  }
+});
+
+adminRouter.put('/mentor-verifications/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const targetUserId = String(req.params.userId);
+    const { status, reviewNote, verifiedSkills } = req.body;
+
+    const allowedStatuses = ['Pending Review', 'Under Review', 'Approved', 'Rejected'];
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Valid verification status is required.' });
+    }
+
+    const [targetUser] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, targetUserId));
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Mentor profile not found.' });
+    }
+
+    const skillsData = await getUserSkillEntries(targetUserId);
+    const userTests = await db
+      .select()
+      .from(skillTests)
+      .where(eq(skillTests.userId, targetUserId))
+      .orderBy(desc(skillTests.createdAt));
+
+    const defaultSkillsList = Array.from(
+      new Set([
+        ...userTests.map((t) => t.skill),
+        ...skillsData.teaching.map((s) => s.name),
+      ])
+    ).join(', ');
+
+    const isApproved = status === 'Approved';
+    const finalVerifiedSkills = isApproved
+      ? String(verifiedSkills || targetUser.mentorVerifiedSkills || defaultSkillsList || 'General Mentoring').trim()
+      : '';
+
+    const [updated] = await db
+      .update(profiles)
+      .set({
+        accountType: 'MENTOR',
+        isVerifiedMentor: isApproved,
+        mentorVerificationStatus: status,
+        mentorVerifiedAt: isApproved ? new Date() : null,
+        mentorVerifiedSkills: finalVerifiedSkills,
+        mentorReviewNote: reviewNote !== undefined ? String(reviewNote).trim() : targetUser.mentorReviewNote,
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.id, targetUserId))
+      .returning();
+
+    if (isApproved) {
+      const primarySkill = finalVerifiedSkills.split(',')[0]?.trim() || 'Peer Mentoring';
+      await issueCertificateIfNotExists({
+        userId: targetUser.id,
+        recipientName: targetUser.fullName,
+        title: `Verified Peer Mentor – ${primarySkill}`,
+        skillName: primarySkill,
+        certificateType: 'MENTOR_VERIFICATION',
+        score: userTests[0]?.percentage ?? 90,
+        issuedBy: 'SkillBridge Academic Verification Board',
+      });
+
+      await createNotification(
+        targetUser.id,
+        'MENTOR_APPROVED',
+        'Congratulations! You are now a Verified Mentor',
+        `Your mentor profile and skill verification test have been approved by an administrator. The Verified Mentor badge is now active on your profile.${
+          reviewNote ? ` Admin Note: "${reviewNote}"` : ''
+        }`
+      );
+    } else if (status === 'Rejected') {
+      await createNotification(
+        targetUser.id,
+        'MENTOR_REJECTED',
+        'Mentor Verification Update',
+        `Your mentor verification was reviewed and marked as Rejected.${
+          reviewNote ? ` Admin Review Note: "${reviewNote}"` : ' Please review feedback and retake the skill test.'
+        }`
+      );
+    } else if (status === 'Under Review') {
+      await createNotification(
+        targetUser.id,
+        'MENTOR_UNDER_REVIEW',
+        'Mentor Profile Under Admin Review',
+        'An administrator is currently reviewing your mentor profile and skill test results.'
+      );
+    }
+
+    const { passwordHash, verificationCode, resetCode, ...safeUpdated } = updated;
+    res.json({
+      message: `Mentor verification status updated to ${status}.`,
+      mentor: safeUpdated,
+    });
+  } catch (error: any) {
+    console.error('Error in PUT /api/admin/mentor-verifications/:userId:', error);
+    res.status(500).json({ error: 'Failed to update mentor verification status.' });
   }
 });

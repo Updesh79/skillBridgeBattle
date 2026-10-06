@@ -21,6 +21,8 @@ import {
   Flag,
   FileText,
   Swords,
+  Award,
+  FileCheck2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { Avatar, LiquidBackground, GlassCard, GlassButton } from '../ui/CommonUI.tsx';
@@ -174,11 +176,11 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/discover', label: 'Discover' },
     { to: '/battle', label: 'Skill Battle' },
+    { to: '/mentor/verify-skills', label: 'Skill Verification' },
+    { to: '/certificates', label: 'Certificates' },
     { to: '/connections', label: 'Connections' },
     { to: '/messages', label: 'Messages' },
     { to: '/sessions', label: 'Sessions' },
-    { to: '/goals', label: 'Goals' },
-    { to: '/progress', label: 'Progress' },
   ];
 
   // Full Sidebar Navigation preserving every route
@@ -186,6 +188,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/discover', label: 'Discover Peers', icon: Compass },
     { to: '/battle', label: 'Skill Battle', icon: Swords },
+    { to: '/mentor/verify-skills', label: 'Skill Verification', icon: FileCheck2 },
+    { to: '/certificates', label: 'Certificates', icon: Award },
     { to: '/my-skills', label: 'My Skills', icon: BookOpen },
     { to: '/requests', label: 'Learning Requests', icon: GitPullRequest },
     { to: '/connections', label: 'Connections', icon: Users },
@@ -201,6 +205,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const adminNav = [
     { to: '/admin', label: 'Admin Dashboard', icon: ShieldCheck, end: true },
+    { to: '/admin/mentor-verifications', label: 'Mentor Verification', icon: Award },
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/skills', label: 'Manage Skills', icon: BookOpen },
     { to: '/admin/categories', label: 'Categories', icon: Layers },

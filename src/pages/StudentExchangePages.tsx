@@ -12,6 +12,8 @@ import {
   Star,
   UserCheck,
   Edit3,
+  Video,
+  Monitor,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import {
@@ -457,6 +459,7 @@ export const ConnectionsPage: React.FC = () => {
 // ============================================================================
 export const SessionsPage: React.FC = () => {
   const { profile, catalogSkills, apiFetch, showToast, refreshProfile } = useAuth();
+  const navigate = useNavigate();
 
   const [sessionsList, setSessionsList] = useState<SessionItem[]>([]);
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
@@ -707,14 +710,26 @@ export const SessionsPage: React.FC = () => {
                     </div>
 
                     <div className="pt-3.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
-                      <GlassButton
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setDetailSession(s)}
-                      >
-                        View Details
-                      </GlassButton>
+                      <div className="flex items-center gap-2">
+                        <GlassButton
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={() => navigate(`/teaching-room/${s.id}`)}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600/40 via-indigo-600/40 to-cyan-500/40 border-cyan-400/40 text-white font-bold"
+                        >
+                          <Video className="w-3.5 h-3.5 text-cyan-300" />
+                          <span>Join Teaching Room</span>
+                        </GlassButton>
+                        <GlassButton
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setDetailSession(s)}
+                        >
+                          Details
+                        </GlassButton>
+                      </div>
 
                       <div className="flex items-center gap-2">
                         <button
@@ -740,7 +755,7 @@ export const SessionsPage: React.FC = () => {
                           onClick={() => handleUpdateSessionStatus(s, 'Completed')}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Mark Complete</span>
+                          <span>Complete</span>
                         </GlassButton>
                       </div>
                     </div>
@@ -1016,9 +1031,22 @@ export const SessionsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-white/10">
               {detailSession.status === 'Scheduled' && (
                 <>
+                  <GlassButton
+                    type="button"
+                    variant="primary"
+                    onClick={() => {
+                      const id = detailSession.id;
+                      setDetailSession(null);
+                      navigate(`/teaching-room/${id}`);
+                    }}
+                    className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600/40 via-indigo-600/40 to-cyan-500/40 border-cyan-400/40 text-white font-bold"
+                  >
+                    <Video className="w-4 h-4 text-cyan-300" />
+                    <span>Join Live Teaching Room</span>
+                  </GlassButton>
                   <GlassButton
                     type="button"
                     variant="danger"

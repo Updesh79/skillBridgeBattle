@@ -8,6 +8,8 @@ import {
   connections,
   sessions,
   reviews,
+  skillTests,
+  certificates,
 } from './schema.ts';
 import { eq } from 'drizzle-orm';
 
@@ -30,8 +32,11 @@ const INITIAL_SKILLS: { name: string; category: string; description: string }[] 
   { name: 'Python', category: 'Programming', description: 'General-purpose programming, scripting, automation, and data structures' },
   { name: 'Java', category: 'Programming', description: 'Object-oriented programming, collections, and enterprise application fundamentals' },
   { name: 'C++', category: 'Programming', description: 'Systems programming, STL, and competitive programming algorithms' },
+  { name: 'C', category: 'Programming', description: 'Low-level procedural programming, pointers, and memory management' },
   { name: 'JavaScript', category: 'Web Development', description: 'Modern ES6+, asynchronous programming, and DOM manipulation' },
   { name: 'React', category: 'Web Development', description: 'Component-based frontend development with React hooks and state management' },
+  { name: 'Node.js', category: 'Web Development', description: 'Event-driven server-side JavaScript runtime and REST APIs' },
+  { name: 'HTML/CSS', category: 'Web Development', description: 'Semantic HTML5 markup and modern responsive CSS layouts' },
   { name: 'HTML', category: 'Web Development', description: 'Semantic web markup, accessibility, and document structure' },
   { name: 'CSS', category: 'Web Development', description: 'Responsive layouts, Flexbox, Grid, and modern styling' },
   { name: 'Flutter', category: 'Mobile Development', description: 'Cross-platform mobile apps using Dart and Flutter widgets' },
@@ -421,6 +426,106 @@ export async function ensureDefaultCatalogAndDemoPeers(forceReseed = false) {
         });
       }
     }
+
+    // 5. Enrich demo mentor profiles & sample certificates if not yet set
+    await db
+      .update(profiles)
+      .set({
+        accountType: 'MENTOR',
+        phoneNumber: '+91 98765 43210',
+        qualification: 'Graduation',
+        experienceYears: '2 Years',
+        experienceDescription: 'Peer mentor for Python data structures, SQL optimization, and backend APIs across 4 semesters.',
+        githubUrl: 'https://github.com/rahulsharma-dtu',
+        linkedinUrl: 'https://linkedin.com/in/rahulsharma-dtu',
+        projectsUrl: 'https://rahulsharma.dev/projects',
+        isVerifiedMentor: true,
+        mentorVerificationStatus: 'Approved',
+        mentorVerifiedAt: new Date('2026-09-20T10:00:00Z'),
+        mentorVerifiedSkills: 'Python, JavaScript, SQL',
+        mentorReviewNote: 'Strong Python & SQL verification test score (90/100) and active GitHub portfolio.',
+      })
+      .where(eq(profiles.id, 'demo-rahul-sharma'));
+
+    const [priyaProfile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, 'demo-priya-patel'));
+
+    if (priyaProfile && priyaProfile.mentorVerificationStatus === 'Not Submitted') {
+      await db
+        .update(profiles)
+        .set({
+          accountType: 'MENTOR',
+          phoneNumber: '+91 98111 22334',
+          qualification: 'Graduation',
+          experienceYears: '1.5 Years',
+          experienceDescription: 'UI/UX Design Club Lead & Frontend Workshop Facilitator.',
+          githubUrl: 'https://github.com/priyapatel-ui',
+          linkedinUrl: 'https://linkedin.com/in/priyapatel-design',
+          projectsUrl: 'https://dribbble.com/priyapatel',
+          isVerifiedMentor: false,
+          mentorVerificationStatus: 'Pending Review',
+        })
+        .where(eq(profiles.id, 'demo-priya-patel'));
+
+      await db
+        .insert(skillTests)
+        .values({
+          id: 'TEST-2026-100201',
+          userId: 'demo-priya-patel',
+          skill: 'HTML/CSS',
+          difficulty: 'Intermediate',
+          status: 'SUBMITTED',
+          totalQuestions: 20,
+          durationSeconds: 900,
+          startedAt: new Date('2026-09-25T14:00:00Z'),
+          expiresAt: new Date('2026-09-25T14:15:00Z'),
+          submittedAt: new Date('2026-09-25T14:11:20Z'),
+          timeTakenSeconds: 680,
+          score: 85,
+          maxScore: 100,
+          percentage: 85,
+          correctCount: 17,
+          incorrectCount: 2,
+          unansweredCount: 1,
+          passed: true,
+          currentQuestionIndex: 19,
+        })
+        .onConflictDoNothing({ target: skillTests.id });
+    }
+
+    await db
+      .insert(certificates)
+      .values({
+        certificateId: 'SB-CERT-2026-000101',
+        userId: 'demo-rahul-sharma',
+        recipientName: 'Rahul Sharma',
+        title: 'Verified Peer Mentor – Python & Backend Architecture',
+        skillName: 'Python',
+        certificateType: 'MENTOR_VERIFICATION',
+        verificationStatus: 'Verified',
+        score: 90,
+        issuedBy: 'SkillBridge Academic Board',
+        issueDate: '2026-09-20',
+      })
+      .onConflictDoNothing({ target: certificates.certificateId });
+
+    await db
+      .insert(certificates)
+      .values({
+        certificateId: 'SB-CERT-2026-000102',
+        userId: 'demo-priya-patel',
+        recipientName: 'Priya Patel',
+        title: 'Certificate of Skill Mastery – UI/UX Design & Prototyping',
+        skillName: 'UI/UX Design',
+        certificateType: 'SKILL_COMPLETION',
+        verificationStatus: 'Verified',
+        score: 95,
+        issuedBy: 'SkillBridge Academic Board',
+        issueDate: '2026-09-22',
+      })
+      .onConflictDoNothing({ target: certificates.certificateId });
 
     isSeeded = true;
   } catch (error) {

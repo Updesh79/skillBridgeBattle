@@ -25,6 +25,20 @@ export const profiles = pgTable('profiles', {
   notifySessions: boolean('notify_sessions').default(true).notNull(),
   notifyReviews: boolean('notify_reviews').default(true).notNull(),
   profileVisibility: text('profile_visibility').default('PUBLIC').notNull(),
+  accountType: text('account_type').default('LEARNER').notNull(), // 'LEARNER' | 'MENTOR'
+  phoneNumber: text('phone_number').default('').notNull(),
+  qualification: text('qualification').default('').notNull(),
+  careerGoal: text('career_goal').default('').notNull(),
+  experienceYears: text('experience_years').default('').notNull(),
+  experienceDescription: text('experience_description').default('').notNull(),
+  githubUrl: text('github_url').default('').notNull(),
+  linkedinUrl: text('linkedin_url').default('').notNull(),
+  projectsUrl: text('projects_url').default('').notNull(),
+  isVerifiedMentor: boolean('is_verified_mentor').default(false).notNull(),
+  mentorVerificationStatus: text('mentor_verification_status').default('Not Submitted').notNull(), // 'Not Submitted' | 'Pending Review' | 'Under Review' | 'Approved' | 'Rejected'
+  mentorVerifiedAt: timestamp('mentor_verified_at'),
+  mentorVerifiedSkills: text('mentor_verified_skills').default('').notNull(),
+  mentorReviewNote: text('mentor_review_note').default('').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -356,6 +370,72 @@ export const battleStatistics = pgTable('battle_statistics', {
   favoriteTechnology: text('favorite_technology').default('Python').notNull(),
   bestTechnology: text('best_technology').default('Python').notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// MENTOR SKILL VERIFICATION TEST & CERTIFICATES TABLES
+// ============================================================================
+
+export const skillTests = pgTable('skill_tests', {
+  id: text('id').primaryKey(), // e.g., TEST-2026-849201
+  userId: text('user_id')
+    .references(() => profiles.id, { onDelete: 'cascade' })
+    .notNull(),
+  skill: text('skill').notNull(),
+  difficulty: text('difficulty').default('Intermediate').notNull(),
+  status: text('status').default('IN_PROGRESS').notNull(), // 'IN_PROGRESS' | 'SUBMITTED' | 'TIMED_OUT'
+  totalQuestions: integer('total_questions').default(10).notNull(),
+  durationSeconds: integer('duration_seconds').default(900).notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  submittedAt: timestamp('submitted_at'),
+  timeTakenSeconds: integer('time_taken_seconds').default(0).notNull(),
+  score: integer('score').default(0).notNull(),
+  maxScore: integer('max_score').default(100).notNull(),
+  percentage: integer('percentage').default(0).notNull(),
+  correctCount: integer('correct_count').default(0).notNull(),
+  incorrectCount: integer('incorrect_count').default(0).notNull(),
+  unansweredCount: integer('unanswered_count').default(0).notNull(),
+  passed: boolean('passed').default(false).notNull(),
+  currentQuestionIndex: integer('current_question_index').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const skillTestQuestions = pgTable('skill_test_questions', {
+  id: serial('id').primaryKey(),
+  testId: text('test_id')
+    .references(() => skillTests.id, { onDelete: 'cascade' })
+    .notNull(),
+  questionNumber: integer('question_number').notNull(),
+  questionType: text('question_type').default('MCQ').notNull(), // 'MCQ' | 'CODE'
+  questionText: text('question_text').notNull(),
+  options: text('options').default('[]').notNull(), // JSON array for MCQ
+  starterCode: text('starter_code').default('').notNull(),
+  expectedKeywords: text('expected_keywords').default('[]').notNull(), // JSON array of expected code tokens
+  correctAnswer: text('correct_answer').notNull(),
+  explanation: text('explanation').default('').notNull(),
+  points: integer('points').default(10).notNull(),
+  userAnswer: text('user_answer').default('').notNull(),
+  isAnswered: boolean('is_answered').default(false).notNull(),
+  isCorrect: boolean('is_correct').default(false).notNull(),
+  pointsEarned: integer('points_earned').default(0).notNull(),
+});
+
+export const certificates = pgTable('certificates', {
+  id: serial('id').primaryKey(),
+  certificateId: text('certificate_id').notNull().unique(), // Format: SB-CERT-2026-000123
+  userId: text('user_id')
+    .references(() => profiles.id, { onDelete: 'cascade' })
+    .notNull(),
+  recipientName: text('recipient_name').notNull(),
+  title: text('title').notNull(),
+  skillName: text('skill_name').notNull(),
+  certificateType: text('certificate_type').default('SKILL_COMPLETION').notNull(), // 'SKILL_COMPLETION' | 'MENTOR_VERIFICATION' | 'PEER_EXCHANGE'
+  verificationStatus: text('verification_status').default('Verified').notNull(), // 'Verified' | 'Revoked'
+  score: integer('score'),
+  issuedBy: text('issued_by').default('SkillBridge Academic Board').notNull(),
+  issueDate: text('issue_date').notNull(), // YYYY-MM-DD
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Relations

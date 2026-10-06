@@ -68,6 +68,23 @@ export interface UserProfile {
   notifySessions: boolean;
   notifyReviews: boolean;
   profileVisibility: string;
+  accountType?: 'LEARNER' | 'MENTOR' | string;
+  phoneNumber?: string;
+  qualification?: string;
+  careerGoal?: string;
+  experienceYears?: string;
+  experienceDescription?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  projectsUrl?: string;
+  projectsText?: string;
+  isVerifiedMentor?: boolean;
+  mentorVerificationStatus?: 'Not Submitted' | 'Pending Review' | 'Under Review' | 'Approved' | 'Rejected' | string;
+  mentorVerifiedAt?: string | null;
+  verifiedAt?: string | null;
+  mentorVerifiedSkills?: string;
+  verifiedSkills?: string;
+  mentorReviewNote?: string;
   createdAt: string;
   teachingSkills: SkillEntry[];
   learningSkills: SkillEntry[];
@@ -76,7 +93,64 @@ export interface UserProfile {
   completedSessionsCount: number;
   recentReviews: ReviewItem[];
   progress: ProgressItem[];
+  goals?: LearningGoalItem[];
   overallProgress: number;
+}
+
+export interface SkillTestQuestionItem {
+  id: number;
+  testId: string;
+  questionNumber: number;
+  questionType: 'MCQ' | 'CODE';
+  questionText: string;
+  options: string[];
+  starterCode: string;
+  correctAnswer?: string;
+  explanation?: string;
+  points: number;
+  userAnswer: string;
+  isAnswered: boolean;
+  isCorrect?: boolean;
+  pointsEarned?: number;
+}
+
+export interface SkillTestAttempt {
+  id: string;
+  userId: string;
+  skill: string;
+  difficulty: string;
+  status: 'IN_PROGRESS' | 'SUBMITTED' | 'TIMED_OUT';
+  totalQuestions: number;
+  durationSeconds: number;
+  remainingSeconds?: number;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt?: string | null;
+  timeTakenSeconds: number;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  passed: boolean;
+  currentQuestionIndex: number;
+  createdAt: string;
+}
+
+export interface CertificateItem {
+  id: number;
+  certificateId: string;
+  userId: string;
+  recipientName: string;
+  title: string;
+  skillName: string;
+  certificateType: string;
+  verificationStatus: string;
+  score?: number | null;
+  issuedBy: string;
+  issueDate: string;
+  createdAt: string;
 }
 
 export interface PeerMatchBreakdown {
