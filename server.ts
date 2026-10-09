@@ -1,3 +1,4 @@
+import 'dotenv/config'; // MUST BE LINE 1
 import express from 'express';
 import http from 'http';
 import path from 'path';

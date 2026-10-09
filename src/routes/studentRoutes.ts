@@ -52,10 +52,19 @@ async function resolveCurrentProfile(req: AuthRequest) {
   );
 }
 
+// Safely execute default catalog seeding helper without crashing endpoints
+async function safeEnsureCatalog() {
+  try {
+    await ensureDefaultCatalogAndDemoPeers();
+  } catch (seedErr) {
+    console.warn('Skipping seed initialization in studentRoutes:', seedErr);
+  }
+}
+
 // Public / Authenticated Skills & Categories Catalog
 studentRouter.get('/catalog', async (_req, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
+    await safeEnsureCatalog();
     const data = await getAllCategoriesAndSkills();
     res.json(data);
   } catch (error: any) {
@@ -310,7 +319,7 @@ studentRouter.delete('/my-skills/learn/:id', requireAuth, async (req: AuthReques
 // Quick Viva Preset: Set Teaching = UI/UX (Intermediate) & Learning = Python (Beginner)
 studentRouter.post('/my-skills/viva-preset', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
+    await safeEnsureCatalog();
     const me = await resolveCurrentProfile(req);
     const allSkills = await db.select().from(skills);
     const skillMap = new Map(allSkills.map((s) => [s.name, s.id]));
@@ -409,7 +418,7 @@ studentRouter.post('/my-skills/viva-preset', requireAuth, async (req: AuthReques
 // Discover Peers & Rule-Based Matching
 studentRouter.get('/discover', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
+    await safeEnsureCatalog();
     const me = await resolveCurrentProfile(req);
     const { search, skillId, categoryId, level, availability } = req.query;
 
@@ -2046,7 +2055,7 @@ studentRouter.get('/skill-tests/:testId', requireAuth, async (req: AuthRequest, 
   }
 });
 
-// Save Answer Temporarily During Active Test (preserves MCQ & Code answers across navigation/refresh)
+// Save Answer Temporarily During Active Test
 studentRouter.put(
   '/skill-tests/:testId/answer',
   requireAuth,
@@ -2189,10 +2198,10 @@ studentRouter.post(
 // CERTIFICATES & PUBLIC CERTIFICATE VERIFICATION
 // ============================================================================
 
-// Get all certificates earned by the current user (and auto-issue for 100% progress or verified mentor)
+// Get all certificates earned by the current user
 studentRouter.get('/certificates', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
+    await safeEnsureCatalog();
     const me = await resolveCurrentProfile(req);
 
     // 1. If user is an Approved Verified Mentor, ensure they have their Verified Mentor Certificate
@@ -2263,7 +2272,7 @@ studentRouter.get('/certificates', requireAuth, async (req: AuthRequest, res: Re
   }
 });
 
-// Claim / Generate a Certificate for a completed skill or peer exchange milestone
+// Claim / Generate a Certificate
 studentRouter.post('/certificates/claim', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const me = await resolveCurrentProfile(req);
@@ -2297,10 +2306,10 @@ studentRouter.post('/certificates/claim', requireAuth, async (req: AuthRequest, 
   }
 });
 
-// Public / Authenticated Certificate Verification by unique Certificate ID (e.g. SB-CERT-2026-000101)
+// Public / Authenticated Certificate Verification
 studentRouter.get('/certificates/verify/:certificateId', async (req, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
+    await safeEnsureCatalog();
     const rawId = String(req.params.certificateId || '').trim().toUpperCase();
     if (!rawId) {
       return res.status(400).json({ valid: false, error: 'Certificate ID is required.' });
