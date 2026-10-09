@@ -28,13 +28,20 @@ export async function getOrCreateUser(
     }
 
     // Check if user exists by email (e.g., previously registered via email/password or seeded)
+    const normalizedEmail = email.toLowerCase();
     const byEmail = await db
       .select()
       .from(profiles)
-      .where(eq(profiles.email, email.toLowerCase()));
+      .where(eq(profiles.email, normalizedEmail));
 
     if (byEmail.length > 0) {
-      return byEmail[0];
+      // Line 32 Fix: Sync the uid if registered with email/password previously
+      const [updated] = await db
+        .update(profiles)
+        .set({ uid, emailVerified: true, updatedAt: new Date() })
+        .where(eq(profiles.id, byEmail[0].id))
+        .returning();
+      return updated || byEmail[0];
     }
 
     const derivedName =
@@ -44,10 +51,10 @@ export async function getOrCreateUser(
         .replace(/[._-]/g, ' ')
         .replace(/\b\w/g, (l) => l.toUpperCase());
 
-    const normalizedEmail = email.toLowerCase();
     const initialRole =
       normalizedEmail === 'abhiraghuvanshi2879@gmail.com' ? 'ADMIN' : 'STUDENT';
 
+    // Line 53 Fix: Target profiles.id on conflict
     const result = await db
       .insert(profiles)
       .values({
@@ -62,8 +69,9 @@ export async function getOrCreateUser(
         isDemo: false,
       })
       .onConflictDoUpdate({
-        target: profiles.uid,
+        target: profiles.id,
         set: {
+          uid,
           email: normalizedEmail,
           updatedAt: new Date(),
         },

@@ -425,10 +425,21 @@ authRouter.post('/reset-password', async (req: Request, res: Response) => {
 });
 
 // Get or Sync Current Authenticated User (supports Firebase Google OAuth + Email/Password)
+// Get or Sync Current Authenticated User (supports Firebase Google OAuth + Email/Password)
+// Get or Sync Current Authenticated User (supports Firebase Google OAuth + Email/Password)
+// Get or Sync Current Authenticated User (supports Firebase Google OAuth + Email/Password)
+// Get or Sync Current Authenticated User (supports Firebase Google OAuth + Email/Password)
 authRouter.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    await ensureDefaultCatalogAndDemoPeers();
     const decoded = req.user!;
+
+    // Wrap seed execution so database constraint errors don't block user login
+    try {
+      await ensureDefaultCatalogAndDemoPeers();
+    } catch (seedErr) {
+      console.warn('Skipping default catalog seeding:', seedErr);
+    }
+
     const syncedUser = await getOrCreateUser(
       decoded.uid,
       decoded.email || `${decoded.uid}@skillbridge.edu`,
